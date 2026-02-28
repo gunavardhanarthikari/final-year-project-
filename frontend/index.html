@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueFace AI - Advanced Occlusion Recognition</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="navbar glass-panel">
+            <div class="brand">
+                <ion-icon name="scan-outline"></ion-icon>
+                TrueFace AI
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">
+                    <ion-icon name="home-outline"></ion-icon> Home
+                </a>
+                <a href="history.html" class="nav-link">
+                    <ion-icon name="time-outline"></ion-icon> History
+                </a>
+                <a href="admin.html" class="nav-link">
+                    <ion-icon name="people-outline"></ion-icon> Database
+                </a>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <header class="hero">
+            <h1>Identify Faces <span>Under Occlusion</span></h1>
+            <p>Advanced AI that recognizes individuals even with masks, glasses, or 50% facial coverage.</p>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-container">
+            <div class="glass-panel stat-card">
+                <div class="stat-icon"><ion-icon name="people"></ion-icon></div>
+                <div class="stat-info">
+                    <h3 id="stat-faces">0</h3>
+                    <p>Stored Faces</p>
+                </div>
+            </div>
+            <div class="glass-panel stat-card">
+                <div class="stat-icon"><ion-icon name="aperture"></ion-icon></div>
+                <div class="stat-info">
+                    <h3 id="stat-detections">0</h3>
+                    <p>Detections</p>
+                </div>
+            </div>
+            <div class="glass-panel stat-card">
+                <div class="stat-icon"><ion-icon name="shield-checkmark"></ion-icon></div>
+                <div class="stat-info">
+                    <h3>95%</h3>
+                    <p>Accuracy</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-grid">
+            <!-- Image Upload Card -->
+            <div class="glass-panel upload-card" id="drop-zone-image">
+                <div class="icon-wrapper">
+                    <ion-icon name="image-outline"></ion-icon>
+                </div>
+                <h2>Process Image</h2>
+                <p>Detect faces in static photos</p>
+
+                <div class="upload-area">
+                    <p>Drag & Drop or <span style="color: var(--primary); cursor: pointer;">Browse</span></p>
+                    <input type="file" id="file-input-image" accept="image/*" hidden>
+                </div>
+
+                <div id="preview-container-image" style="display: none; margin-top: 1rem;">
+                    <p id="filename-image" style="color: var(--text-muted); margin-bottom: 1rem;"></p>
+                    <button id="btn-process-image" class="btn btn-primary">
+                        <ion-icon name="analytics-outline"></ion-icon> Analyze Now
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video Upload Card -->
+            <div class="glass-panel upload-card" id="drop-zone-video">
+                <div class="icon-wrapper">
+                    <ion-icon name="videocam-outline"></ion-icon>
+                </div>
+                <h2>Process Video</h2>
+                <p>Track faces detection in clips</p>
+
+                <div class="upload-area">
+                    <p>Drag & Drop or <span style="color: var(--secondary); cursor: pointer;">Browse</span></p>
+                    <input type="file" id="file-input-video" accept="video/*" hidden>
+                </div>
+
+                <div id="preview-container-video" style="display: none; margin-top: 1rem;">
+                    <p id="filename-video" style="color: var(--text-muted); margin-bottom: 1rem;"></p>
+                    <button id="btn-process-video" class="btn btn-primary" style="background: var(--secondary);">
+                        <ion-icon name="play-outline"></ion-icon> Analyze Video
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add to Database Card -->
+            <div class="glass-panel upload-card" id="drop-zone-database">
+                <div class="icon-wrapper" style="color: var(--success);">
+                    <ion-icon name="person-add-outline"></ion-icon>
+                </div>
+                <h2>Add to Database</h2>
+                <p>Train AI with new faces</p>
+
+                <div class="upload-area">
+                    <p>Drag & Drop Face Image</p>
+                    <input type="file" id="file-input-database" accept="image/*" hidden>
+                </div>
+
+                <div id="database-inputs" style="display: none; margin-top: 1.5rem; text-align: left;">
+                    <div style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.9rem; color: var(--text-muted);">Full Name</label>
+                        <input type="text" id="db-person-name" placeholder="e.g. John Doe"
+                            style="width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.3); border: 1px solid var(--surface-glass-border); color: white; border-radius: 0.5rem; margin-top: 0.3rem;">
+                    </div>
+
+                    <img id="db-preview-img" src=""
+                        style="width: 100%; height: 150px; object-fit: cover; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--surface-glass-border);">
+
+                    <button id="btn-add-database" class="btn btn-primary"
+                        style="width: 100%; background: var(--success); justify-content: center;">
+                        <ion-icon name="save-outline"></ion-icon> Save Face
+                    </button>
+                    <p id="db-status-msg"
+                        style="margin-top: 1rem; font-size: 0.9rem; text-align: center; color: var(--text-muted);"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Overlay -->
+    <div id="processing-overlay" class="processing-overlay" style="display: none;">
+        <div class="loader"></div>
+        <h2 style="margin-bottom: 0.5rem;">Analyzing Content</h2>
+        <p style="color: var(--text-muted);">Downloading models (first run) or processing...</p>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>

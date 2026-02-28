@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results - TrueFace AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="navbar glass-panel">
+            <div class="brand">
+                <ion-icon name="scan-outline"></ion-icon>
+                TrueFace AI
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <ion-icon name="arrow-back-outline"></ion-icon> Back to Home
+                </a>
+            </div>
+        </nav>
+
+        <div class="results-container">
+            <!-- Visual Result -->
+            <div class="glass-panel image-preview-card">
+                <img id="result-image" src="" alt="Analyzed Result">
+            </div>
+
+            <!-- Data Result -->
+            <div class="glass-panel" style="padding: 2rem;">
+                <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <ion-icon name="list-outline"></ion-icon> Detections
+                </h2>
+
+                <div id="detections-list" class="detections-list">
+                    <!-- Detections injected by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/results.js"></script>
+</body>
+
+</html>

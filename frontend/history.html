@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection History - TrueFace AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <nav class="navbar glass-panel">
+            <div class="brand">
+                <ion-icon name="scan-outline"></ion-icon>
+                TrueFace AI
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <ion-icon name="home-outline"></ion-icon> Home
+                </a>
+                <a href="history.html" class="nav-link active">
+                    <ion-icon name="time-outline"></ion-icon> History
+                </a>
+                <a href="admin.html" class="nav-link">
+                    <ion-icon name="people-outline"></ion-icon> Database
+                </a>
+            </div>
+        </nav>
+
+        <div class="glass-panel" style="padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2>Activity Log</h2>
+                <div class="filter-group" style="display: flex; gap: 1rem;">
+                    <button class="btn btn-secondary active" onclick="filterHistory('all')">All</button>
+                    <button class="btn btn-secondary" onclick="filterHistory('image')">Images</button>
+                    <button class="btn btn-secondary" onclick="filterHistory('video')">Videos</button>
+                </div>
+            </div>
+
+            <div id="history-list" class="detections-list" style="max-height: 70vh;">
+                <!-- History items injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/history.js"></script>
+</body>
+
+</html>
