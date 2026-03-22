@@ -29,12 +29,12 @@ class Config:
     FACE_EMBEDDINGS_FOLDER = FACE_DB_FOLDER / 'embeddings'
     
     # Face Recognition Settings
-    CONFIDENCE_THRESHOLD = 0.6  # Minimum confidence for match
+    CONFIDENCE_THRESHOLD = 0.5  # Slightly lower to handle heavy occlusion
     OCCLUSION_THRESHOLD = 0.5   # Handle up to 50% occlusion
     
     # Face Detection Model
-    DETECTION_BACKEND = 'mtcnn'  # Options: 'opencv', 'ssd', 'dlib', 'mtcnn', 'retinaface'
-    RECOGNITION_MODEL = 'Facenet512'  # Options: 'VGG-Face', 'Facenet', 'Facenet512', 'OpenFace', 'DeepFace', 'DeepID', 'ArcFace', 'Dlib'
+    DETECTION_BACKEND = 'retinaface' # RetinaFace is best for masks/helmets
+    RECOGNITION_MODEL = 'Facenet512' # High-accuracy model
     
     # Video Processing
     VIDEO_FRAME_SKIP = 5  # Process every Nth frame
