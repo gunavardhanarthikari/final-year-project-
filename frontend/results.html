@@ -5,15 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analysis Results - TrueFace AI</title>
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Ionicons -->
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <!-- CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
     <div class="container">
         <!-- Navigation -->
-        <nav class="navbar glass-panel">
+        <nav class="navbar glass-panel" style="align-items: center">
             <div class="brand">
                 <ion-icon name="scan-outline"></ion-icon>
                 TrueFace AI
@@ -25,20 +28,54 @@
             </div>
         </nav>
 
+        <!-- Stats Bar -->
+        <div class="stats-container" style="margin-bottom: 2rem;">
+            <div class="glass-panel stat-card">
+                <div class="stat-icon"><ion-icon name="people"></ion-icon></div>
+                <div class="stat-info">
+                    <h3 id="totalFaces">0</h3>
+                    <p>Faces Found</p>
+                </div>
+            </div>
+            <div class="glass-panel stat-card">
+                <div class="stat-icon" style="color: var(--success); background: rgba(16, 185, 129, 0.1);">
+                    <ion-icon name="checkmark-circle"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3 id="matchedFaces">0</h3>
+                    <p>Matches</p>
+                </div>
+            </div>
+            <div class="glass-panel stat-card">
+                <div class="stat-icon" style="color: var(--secondary); background: rgba(236, 72, 153, 0.1);">
+                    <ion-icon name="timer"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3 id="processingTime">0s</h3>
+                    <p>Process Time</p>
+                </div>
+            </div>
+        </div>
+
         <div class="results-container">
             <!-- Visual Result -->
-            <div class="glass-panel image-preview-card">
+            <div class="glass-panel image-preview-card" id="annotatedImageContainer">
                 <img id="result-image" src="" alt="Analyzed Result">
             </div>
 
             <!-- Data Result -->
-            <div class="glass-panel" style="padding: 2rem;">
-                <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <div class="glass-panel" style="padding: 1.5rem; overflow: hidden; display: flex; flex-direction: column;">
+                <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem;">
                     <ion-icon name="list-outline"></ion-icon> Detections
                 </h2>
 
                 <div id="detections-list" class="detections-list">
                     <!-- Detections injected by JS -->
+                </div>
+
+                <div id="noResults" style="display: none; text-align: center; padding: 3rem 1rem;">
+                    <ion-icon name="alert-circle-outline" style="font-size: 3rem; color: var(--text-muted);"></ion-icon>
+                    <p style="margin-top: 1rem; color: var(--text-muted);">No faces were detected in this file.</p>
                 </div>
             </div>
         </div>

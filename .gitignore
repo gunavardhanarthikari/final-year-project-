@@ -50,5 +50,7 @@ desktop.ini
 
 # Model Cache
 .deepface/
-models/
+# AI Model Weights
+# models/
+/models/
 weights/

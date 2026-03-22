@@ -34,8 +34,9 @@ function loadResults() {
  */
 function displayResults(results) {
     // Update stats
-    const totalFaces = results.total_faces || results.total_detections || 0;
-    const matched = results.detections?.filter(d => d.is_match).length || 0;
+    const detections = results.detections || [];
+    const totalFaces = results.total_faces || detections.length || 0;
+    const matched = detections.filter(d => d.is_match).length || 0;
     const processingTime = results.processing_time?.toFixed(2) || 0;
 
     updateElement('totalFaces', totalFaces);
@@ -43,38 +44,29 @@ function displayResults(results) {
     updateElement('processingTime', processingTime + 's');
 
     // Show annotated image if available
-    if (results.annotated_image) {
-        const container = document.getElementById('annotatedImageContainer');
-        const img = document.getElementById('annotatedImage');
-
-        if (container && img) {
-            img.src = API_BASE + results.annotated_image;
-            container.style.display = 'block';
-        }
+    const img = document.getElementById('result-image');
+    if (results.annotated_image && img) {
+        img.src = API_BASE + results.annotated_image;
     }
 
     // Display detections
-    if (results.detections && results.detections.length > 0) {
-        displayDetections(results.detections);
+    const container = document.getElementById('detections-list');
+    const noResults = document.getElementById('noResults');
+
+    if (detections.length > 0) {
+        if (container) {
+            container.innerHTML = '';
+            detections.forEach((detection, index) => {
+                const card = createDetectionCard(detection, index);
+                container.appendChild(card);
+            });
+        }
+        if (noResults) noResults.style.display = 'none';
+        if (container) container.style.display = 'flex';
     } else {
-        showNoResults();
+        if (container) container.style.display = 'none';
+        if (noResults) noResults.style.display = 'block';
     }
-}
-
-/**
- * Display detection cards
- */
-function displayDetections(detections) {
-    const grid = document.getElementById('detectionGrid');
-
-    if (!grid) return;
-
-    grid.innerHTML = '';
-
-    detections.forEach((detection, index) => {
-        const card = createDetectionCard(detection, index);
-        grid.appendChild(card);
-    });
 }
 
 /**
@@ -90,48 +82,48 @@ function createDetectionCard(detection, index) {
     const confidence = detection.confidence || 0;
     const isMatch = detection.is_match || false;
     const occlusion = detection.occlusion || 0;
+    // Use our temp API for face image
+    // If detection.face_image_path is null or empty, this will be ''
+    let faceImgUrl = '';
+    if (detection.face_image_path) {
+        // If it starts with /api already (it shouldn't in current app.py but good for robustness)
+        if (detection.face_image_path.startsWith('/api')) {
+            faceImgUrl = API_BASE + detection.face_image_path;
+        } else {
+            // Path returned by app/video is folder/filename or just filename for image
+            faceImgUrl = API_BASE + '/api/file/temp/' + detection.face_image_path;
+        }
+    }
 
-    // Determine badge
-    const badge = isMatch
-        ? '<span class="badge badge-success">Matched</span>'
-        : '<span class="badge badge-warning">Unknown</span>';
-
-    // Create card HTML
     card.innerHTML = `
-        <div class="detection-info">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                <div class="detection-name">${personName}</div>
-                ${badge}
+        <img src="${faceImgUrl}" class="face-thumbnail" alt="Face" onerror="this.src='https://via.placeholder.com/60?text=Face'">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 0.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">${personName}</span>
+                <span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 1rem; background: ${isMatch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${isMatch ? 'var(--success)' : 'var(--error)'};">
+                    ${isMatch ? 'MATCH' : 'UNKNOWN'}
+                </span>
             </div>
             
-            ${personId !== 'N/A' ? `<div class="text-muted" style="font-size: 0.875rem; margin-bottom: 0.5rem;">ID: ${personId}</div>` : ''}
-            
-            <div class="detection-confidence">
-                <span style="font-size: 0.875rem; color: var(--text-secondary);">Confidence</span>
-                <div class="confidence-bar">
-                    <div class="confidence-fill" style="width: ${confidence * 100}%"></div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+                <span>Similarity</span>
+                <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; background: var(--gradient-main); width: ${confidence * 100}%;"></div>
                 </div>
-                <span style="font-size: 0.875rem; font-weight: 600;">${(confidence * 100).toFixed(1)}%</span>
+                <span style="color: var(--text-main); font-weight: 500;">${(confidence * 100).toFixed(1)}%</span>
             </div>
-            
+
             ${occlusion > 0 ? `
-                <div style="margin-top: 0.75rem; padding: 0.5rem; background: var(--bg-secondary); border-radius: 0.375rem;">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Estimated Occlusion</div>
-                    <div style="font-weight: 600; color: var(--text-primary);">${(occlusion * 100).toFixed(0)}%</div>
-                </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; background: rgba(255,255,255,0.03); padding: 0.4rem; border-radius: 0.4rem; margin-top: 0.2rem;">
+                <ion-icon name="shield-half-outline" style="color: var(--secondary);"></ion-icon>
+                <span>Occlusion: <strong>${(occlusion * 100).toFixed(0)}%</strong></span>
+            </div>
             ` : ''}
-            
-            ${detection.frame_number !== undefined ? `
-                <div style="margin-top: 0.75rem; font-size: 0.875rem; color: var(--text-muted);">
-                    Frame: ${detection.frame_number} | Time: ${formatTimestamp(detection.timestamp || 0)}
-                </div>
-            ` : ''}
-            
-            ${detection.bbox ? `
-                <div style="margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
-                    Position: (${detection.bbox.x}, ${detection.bbox.y})
-                </div>
-            ` : ''}
+
+            <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 0.75rem; margin-top: 0.2rem;">
+                ${personId !== 'N/A' ? `<span>ID: ${personId}</span>` : ''}
+                ${detection.timestamp !== undefined ? `<span>Time: ${formatTimestamp(detection.timestamp)}</span>` : ''}
+            </div>
         </div>
     `;
 
@@ -142,7 +134,7 @@ function createDetectionCard(detection, index) {
  * Show no results message
  */
 function showNoResults() {
-    const grid = document.getElementById('detectionGrid');
+    const grid = document.getElementById('detections-list');
     const noResults = document.getElementById('noResults');
 
     if (grid) grid.style.display = 'none';

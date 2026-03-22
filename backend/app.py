@@ -144,9 +144,11 @@ def upload_image():
         
         # Process image
         start_time = datetime.now()
+        logger.info(f"Processing image: {original_filename} ({file_size} bytes)")
         
         # Detect faces
         detections = face_processor.detect_faces(filepath)
+        logger.info(f"Face detection complete: found {len(detections)} faces")
         
         detection_results = []
         
@@ -208,8 +210,26 @@ def upload_image():
                 'person_name': matched_face.person_name if matched_face else 'Unknown',
                 'confidence': confidence,
                 'is_match': person_id is not None,
-                'occlusion': occlusion
+                'occlusion': occlusion,
+                'face_image_path': os.path.basename(face_crop_path)
             })
+            
+        # Post-process results for deduplication
+        # For known faces, only keep the best match (highest confidence)
+        unique_matches = {}
+        unknown_faces = []
+        
+        for det in detection_results:
+            pid = det['person_id']
+            if pid:
+                # If seen before, keep the one with higher confidence
+                if pid not in unique_matches or det['confidence'] > unique_matches[pid]['confidence']:
+                    unique_matches[pid] = det
+            else:
+                unknown_faces.append(det)
+        
+        final_results = list(unique_matches.values()) + unknown_faces
+        total_faces_found = len(detection_results)
         
         # Update processing time
         processing_time = (datetime.now() - start_time).total_seconds()
@@ -226,8 +246,8 @@ def upload_image():
             'success': True,
             'file_id': uploaded_file.id,
             'filename': original_filename,
-            'detections': detection_results,
-            'total_faces': len(detection_results),
+            'detections': final_results,
+            'total_faces': total_faces_found,
             'processing_time': processing_time,
             'annotated_image': f'/api/file/temp/annotated_{uploaded_file.id}.jpg'
         }), 200
@@ -325,27 +345,56 @@ def upload_video():
         
         db.session.commit()
         
-        # Prepare response
-        detection_summary = []
+        # Prepare response with deduplication
+        unique_matches = {}
+        top_unknown = None
+        video_name = Path(uploaded_file.file_path).stem
+        
         for det in detections:
             matched_face = StoredFace.query.filter_by(person_id=det['person_id']).first() if det['person_id'] else None
             
-            detection_summary.append({
+            filename = os.path.basename(det['face_image_path'])
+            relative_path = f"{video_name}/{filename}"
+            
+            result_item = {
                 'frame_number': det['frame_number'],
                 'timestamp': det['timestamp'],
                 'person_id': det['person_id'],
                 'person_name': matched_face.person_name if matched_face else 'Unknown',
                 'confidence': det['confidence'],
-                'is_match': det['is_match']
-            })
+                'is_match': det['is_match'],
+                'face_image_path': relative_path,
+                'occlusion': det['occlusion_estimated']
+            }
+            
+            pid = det['person_id']
+            if pid:
+                # Deduplicate by person_id, keep highest confidence
+                if pid not in unique_matches or result_item['confidence'] > unique_matches[pid]['confidence']:
+                    unique_matches[pid] = result_item
+            else:
+                # For unknowns, keep the one with best face detection confidence (visibility)
+                if not top_unknown or result_item['confidence'] > top_unknown['confidence']:
+                    top_unknown = result_item
         
+        detection_summary = list(unique_matches.values())
+        if top_unknown:
+            detection_summary.append(top_unknown)
+            
+        # Use first detection as representative image
+        representative_image = None
+        if detection_summary:
+            representative_image = f"/api/file/temp/{detection_summary[0]['face_image_path']}"
+
         return jsonify({
             'success': True,
             'file_id': uploaded_file.id,
             'filename': original_filename,
+            'is_video': True,
             'detections': detection_summary,
-            'total_detections': len(detections),
-            'processing_time': processing_time
+            'total_detections': len(detections), # Total raw detections
+            'processing_time': processing_time,
+            'annotated_image': representative_image
         }), 200
         
     except RequestEntityTooLarge:
