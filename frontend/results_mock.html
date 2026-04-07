@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results (Mock) - TrueFace AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .bounding-box {
+            position: absolute;
+            border: 2px solid #10b981;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+
+        .box-label {
+            background: #10b981;
+            color: black;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 2px;
+            margin-top: -20px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .match-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            padding: 0.3rem 0.6rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            font-size: 0.75rem;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .detection-item-mock {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.8rem;
+            padding: 1.2rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .ref-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 0.4rem;
+            object-fit: cover;
+            border: 2px solid var(--success);
+        }
+
+        .stat-card {
+            padding: 1rem !important;
+        }
+
+        .stat-icon {
+            width: 40px !important;
+            height: 40px !important;
+            font-size: 1.2rem !important;
+        }
+
+        .stat-info h3 {
+            font-size: 1.2rem !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 950px; padding: 1.5rem;">
+        <nav class="navbar glass-panel" style="margin-bottom: 1.5rem;">
+            <div class="brand" style="font-size: 1.2rem;">
+                <ion-icon name="scan-outline"></ion-icon> TrueFace AI
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link" style="font-size: 0.9rem;">
+                    <ion-icon name="arrow-back-outline"></ion-icon> Back
+                </a>
+            </div>
+        </nav>
+
+        <div class="stats-container" style="margin-bottom: 1.5rem; gap: 1rem;">
+            <div class="glass-panel stat-card">
+                <div class="stat-icon"><ion-icon name="people"></ion-icon></div>
+                <div class="stat-info">
+                    <h3>1</h3>
+                    <p style="font-size: 0.75rem;">Face Found</p>
+                </div>
+            </div>
+            <div class="glass-panel stat-card">
+                <div class="stat-icon" style="color: var(--success); background: rgba(16, 185, 129, 0.1);">
+                    <ion-icon name="checkmark-circle"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3>1</h3>
+                    <p style="font-size: 0.75rem;">Match</p>
+                </div>
+            </div>
+            <div class="glass-panel stat-card">
+                <div class="stat-icon" style="color: var(--secondary); background: rgba(236, 72, 153, 0.1);">
+                    <ion-icon name="timer"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3>0.8s</h3>
+                    <p style="font-size: 0.75rem;">Process Time</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-grid">
+            <div class="glass-panel" style="position: relative; overflow: hidden; padding: 0;">
+                <img src="img/detected_face.jpg" style="width: 100%; display: block; border-radius: 0.8rem;">
+                <!-- Manual Bounding Box -->
+                <div class="bounding-box" style="top: 28%; left: 30%; width: 40%; height: 45%;">
+                    <div class="box-label">MATCH: CHRIS EVANS (94%)</div>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="padding: 1.2rem;">
+                <h2 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <ion-icon name="list-outline"></ion-icon> Detections
+                </h2>
+
+                <div class="detection-item-mock">
+                    <img src="img/db_reference.jpg" class="ref-image">
+                    <div style="flex-grow: 1;">
+                        <h3 style="font-size: 0.95rem; margin-bottom: 0.2rem;">Chris Evans</h3>
+                        <div class="match-badge">
+                            <ion-icon name="shield-checkmark"></ion-icon> Verified
+                        </div>
+                        <div style="margin-top: 0.8rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; font-size: 0.65rem; color: var(--text-muted);">
+                            <div>CONFIDENCE: <span style="color: white; font-weight: 600;">94%</span></div>
+                            <div>OCCLUSION: <span style="color: var(--secondary); font-weight: 600;">25%</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1.5rem; background: rgba(255,193,7, 0.05); border: 1px solid rgba(255,193,7, 0.2); padding: 0.8rem; border-radius: 0.5rem;">
+                    <p style="color: #ffc107; font-size: 0.75rem; display: flex; align-items: flex-start; gap: 0.5rem; line-height: 1.4;">
+                        <ion-icon name="alert-triangle-outline" style="min-width: 1rem; margin-top: 2px;"></ion-icon>
+                        Partial occlusion (Glasses) detected. Match confirmed.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

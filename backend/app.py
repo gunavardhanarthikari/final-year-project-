@@ -7,17 +7,20 @@ import uuid
 import logging
 from pathlib import Path
 from datetime import datetime
-from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask import Flask, request, jsonify, send_from_directory, render_template, session
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
+from functools import wraps
 
 from config import config, Config
-from database import db, StoredFace, UploadedFile, Detection, ProcessingLog
+from database import db, StoredFace, UploadedFile, Detection, ProcessingLog, User
 from models import FaceProcessor, VideoProcessor
 from utils import (
     allowed_file, save_uploaded_file, get_file_size,
     draw_bounding_boxes, validate_image, validate_video
 )
+from utils.notifier import NotificationManager
+from utils.id_gen import get_next_id
 
 # Configure logging
 logging.basicConfig(
@@ -42,11 +45,12 @@ db.init_app(app)
 # Initialize AI processors
 face_processor = None
 video_processor = None
+notifier = None
 
 
 def init_processors():
     """Initialize AI processors"""
-    global face_processor, video_processor
+    global face_processor, video_processor, notifier
     
     if face_processor is None:
         face_processor = FaceProcessor(app.config)
@@ -55,6 +59,10 @@ def init_processors():
     if video_processor is None:
         video_processor = VideoProcessor(app.config, face_processor)
         logger.info("Video processor initialized")
+
+    if notifier is None:
+        notifier = NotificationManager(app.config)
+        logger.info("Notification manager initialized")
 
 
 # ============================================================================
@@ -92,6 +100,110 @@ def history():
 def admin():
     """Admin panel for face database management"""
     return render_template('admin.html')
+
+
+# ============================================================================
+# AUTHENTICATION HELPERS & ROUTES
+# ============================================================================
+
+def login_required(f):
+    """Decorator to require login for specific routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        # Check if user is deleted
+        user = User.query.get(session['user_id'])
+        if not user or user.is_deleted:
+            session.clear()
+            return jsonify({'error': 'Account is inactive or deleted'}), 403
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_required(f):
+    """Decorator to require Admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        user = User.query.get(session['user_id'])
+        if not user or user.is_deleted or user.role != 'ADMIN':
+            return jsonify({'error': 'Admin privileges required'}), 403
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def manager_required(f):
+    """Decorator to require Manager (High-end) or Admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        user = User.query.get(session['user_id'])
+        if not user or user.is_deleted or user.role not in ['ADMIN', 'MANAGER']:
+            return jsonify({'error': 'Manager or Admin privileges required'}), 403
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Authenticate user via Email or Readable ID"""
+    data = request.get_json()
+    identifier = data.get('username') # Can be email or readable_id
+    password = data.get('password')
+    
+    if not identifier or not password:
+        return jsonify({'error': 'Identifier and password required'}), 400
+    
+    # Check by email OR readable_id
+    user = User.query.filter(
+        (User.email == identifier) | (User.readable_id == identifier)
+    ).first()
+    
+    if user and user.check_password(password):
+        if user.is_deleted:
+            return jsonify({'error': 'Account is inactive'}), 403
+            
+        session['user_id'] = user.id
+        session['username'] = user.readable_id
+        session['role'] = user.role
+        session.permanent = True
+        
+        logger.info(f"User login: {user.readable_id} ({user.role})")
+        return jsonify({
+            'success': True, 
+            'user': user.to_dict()
+        }), 200
+    
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Clear user session"""
+    session.clear()
+    return jsonify({'success': True}), 200
+
+
+@app.route('/api/auth/status', methods=['GET'])
+def auth_status():
+    """Check if user is logged in"""
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user:
+            return jsonify({
+                'logged_in': True,
+                'user': user.to_dict()
+            }), 200
+    return jsonify({'logged_in': False}), 200
 
 
 # ============================================================================
@@ -137,7 +249,8 @@ def upload_image():
             filename=original_filename,
             file_path=filepath,
             file_type='image',
-            file_size=file_size
+            file_size=file_size,
+            user_id=session.get('user_id') # New: Associate with user
         )
         db.session.add(uploaded_file)
         db.session.commit()
@@ -238,6 +351,34 @@ def upload_image():
         
         db.session.commit()
         
+        # Trigger Dual Alerts for Matches
+        for pid, det in unique_matches.items():
+            if det['is_match']:
+                # Find the matched face database record
+                face = StoredFace.query.filter_by(person_id=pid).first()
+                if face:
+                    # Collect recipients: Admin + Uploader
+                    alert_list = []
+                    alert_list.extend(app.config.get('ALERT_RECIPIENTS', []))
+                    
+                    uploader = User.query.get(session.get('user_id'))
+                    if uploader and uploader.email and uploader.email not in alert_list:
+                        alert_list.append(uploader.email)
+                    
+                    # Find the detection to get the face image path
+                    detection_record = Detection.query.filter_by(
+                        file_id=uploaded_file.id, 
+                        matched_face_id=face.id
+                    ).first()
+                    
+                    if alert_list and detection_record:
+                        notifier.send_match_alert(
+                            det['person_name'], 
+                            det['confidence'] * 100, 
+                            detection_record.face_image_path,
+                            recipients=alert_list
+                        )
+
         # Create annotated image
         annotated_path = str(app.config['TEMP_FOLDER'] / f"annotated_{uploaded_file.id}.jpg")
         draw_bounding_boxes(filepath, detection_results, annotated_path)
@@ -302,7 +443,8 @@ def upload_video():
             filename=original_filename,
             file_path=filepath,
             file_type='video',
-            file_size=file_size
+            file_size=file_size,
+            user_id=session.get('user_id') # New: Associate with user
         )
         db.session.add(uploaded_file)
         db.session.commit()
@@ -381,6 +523,27 @@ def upload_video():
         if top_unknown:
             detection_summary.append(top_unknown)
             
+        # Trigger Dual Alerts for Unique Matches
+        for pid, match_data in unique_matches.items():
+            # Find the original detection to get the absolute path
+            original_det = next((d for d in detections if d['person_id'] == pid), None)
+            if original_det and match_data['is_match']:
+                # Collect recipients: Admin + Uploader
+                alert_list = []
+                alert_list.extend(app.config.get('ALERT_RECIPIENTS', []))
+                
+                uploader = User.query.get(session.get('user_id'))
+                if uploader and uploader.email and uploader.email not in alert_list:
+                    alert_list.append(uploader.email)
+                
+                if alert_list:
+                    notifier.send_match_alert(
+                        match_data['person_name'],
+                        match_data['confidence'] * 100,
+                        original_det['face_image_path'],
+                        recipients=alert_list
+                    )
+
         # Use first detection as representative image
         representative_image = None
         if detection_summary:
@@ -409,6 +572,7 @@ def upload_video():
 # ============================================================================
 
 @app.route('/api/face/add', methods=['POST'])
+@login_required
 def add_face():
     """Add new face to database"""
     try:
@@ -420,7 +584,8 @@ def add_face():
         if not person_name:
             return jsonify({'error': 'Person name is required'}), 400
         
-        # Auto-generate unique ID
+        # Generate unique IDs
+        readable_id = get_next_id(StoredFace, role='FACE')
         person_id = f"PID_{uuid.uuid4().hex[:8].upper()}"
         
         # Check if person already exists (unlikely with UUID but good practice)
@@ -470,10 +635,12 @@ def add_face():
         
         # Add to database
         stored_face = StoredFace(
+            readable_id=readable_id,
             person_id=person_id,
             person_name=person_name,
             image_path=filepath,
-            embedding_path=embedding_path
+            embedding_path=embedding_path,
+            created_by=session.get('user_id')
         )
         db.session.add(stored_face)
         db.session.commit()
@@ -492,6 +659,7 @@ def add_face():
 
 
 @app.route('/api/face/list', methods=['GET'])
+@login_required
 def list_faces():
     """Get list of all stored faces"""
     try:
@@ -509,6 +677,7 @@ def list_faces():
 
 
 @app.route('/api/face/<int:face_id>', methods=['DELETE'])
+@login_required
 def delete_face(face_id):
     """Delete face from database"""
     try:
@@ -540,10 +709,203 @@ def delete_face(face_id):
 
 
 # ============================================================================
+# API ROUTES - Admin Dashboard & User Management
+# ============================================================================
+
+@app.route('/api/admin/dashboard', methods=['GET'])
+@admin_required
+def get_admin_dashboard():
+    """Get system-wide statistics for the admin dashboard"""
+    try:
+        total_faces = StoredFace.query.count()
+        total_uploads = UploadedFile.query.count()
+        total_detections = Detection.query.count()
+        total_matches = Detection.query.filter_by(is_match=True).count()
+        
+        # Recent activity (last 10 uploads)
+        recent_uploads = UploadedFile.query.order_by(UploadedFile.upload_time.desc()).limit(10).all()
+        
+        # User counts by role
+        user_stats = {
+            'ADMIN': User.query.filter_by(role='ADMIN', is_deleted=False).count(),
+            'MANAGER': User.query.filter_by(role='MANAGER', is_deleted=False).count(),
+            'VIEWER': User.query.filter_by(role='VIEWER', is_deleted=False).count()
+        }
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_stored_faces': total_faces,
+                'total_uploads': total_uploads,
+                'total_detections': total_detections,
+                'total_matches': total_matches,
+                'match_rate': round(total_matches / total_detections * 100, 2) if total_detections > 0 else 0,
+                'user_counts': user_stats
+            },
+            'recent_activity': [u.to_dict() for u in recent_uploads]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Dashboard error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def list_users():
+    """List all active users"""
+    try:
+        users = User.query.filter_by(is_deleted=False).all()
+        return jsonify({
+            'success': True,
+            'users': [u.to_dict() for u in users]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user/create', methods=['POST'])
+@admin_required
+def create_user():
+    """Create a new user with auto-generated Readable ID"""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        full_name = data.get('full_name')
+        password = data.get('password', 'User@123') # Default password if not provided
+        role = data.get('role', 'VIEWER') # Default role
+        
+        if not email or not full_name:
+            return jsonify({'error': 'Email and Full Name are required'}), 400
+            
+        if User.query.filter_by(email=email).first():
+            return jsonify({'error': 'Email already exists'}), 400
+            
+        # Generate Readable ID (AD001, MG001, VW001)
+        readable_id = get_next_id(User, role=role)
+        
+        new_user = User(
+            readable_id=readable_id,
+            email=email,
+            full_name=full_name,
+            role=role
+        )
+        new_user.set_password(password)
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f"User created successfully with ID: {readable_id}",
+            'user': new_user.to_dict()
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"User creation error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/admin/user/<int:user_id>', methods=['DELETE'])
+@admin_required
+def soft_delete_user(user_id):
+    """Soft delete a user"""
+    try:
+        user = User.query.get(user_id)
+        if not user or user.is_deleted:
+            return jsonify({'error': 'User not found'}), 404
+            
+        if user.readable_id == session.get('username'):
+            return jsonify({'error': 'Cannot delete your own account'}), 400
+            
+        user.is_deleted = True
+        db.session.commit()
+        
+        logger.info(f"User soft-deleted: {user.readable_id}")
+        return jsonify({'success': True, 'message': f"User {user.readable_id} deactivated"}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# API ROUTES - Face Database Management (Enhanced)
+# ============================================================================
+
+@app.route('/api/face/add-from-upload', methods=['POST'])
+@manager_required
+def add_face_from_upload():
+    """Add a detected face directly from an upload results page"""
+    try:
+        data = request.get_json()
+        detection_id = data.get('detection_id')
+        person_name = data.get('person_name')
+        
+        if not detection_id or not person_name:
+            return jsonify({'error': 'Detection ID and Person Name are required'}), 400
+            
+        detection = Detection.query.get(detection_id)
+        if not detection:
+            return jsonify({'error': 'Detection record not found'}), 404
+            
+        # Get the cropped face image path
+        face_img_path = detection.face_image_path
+        if not face_img_path or not os.path.exists(face_img_path):
+            # Try to recreate from original file if path is relative
+            return jsonify({'error': 'Detected face image not found on server'}), 400
+
+        # Generate IDs
+        readable_id = get_next_id(StoredFace, role='FACE')
+        person_id = f"PID_{uuid.uuid4().hex[:8].upper()}"
+        
+        # Save face image to permanent face_database
+        face_filename = f"{readable_id}_{os.path.basename(face_img_path)}"
+        permanent_path = app.config['FACE_IMAGES_FOLDER'] / face_filename
+        
+        import shutil
+        shutil.copy(face_img_path, permanent_path)
+        
+        # Generate embedding
+        # Use existing face_processor
+        try:
+            init_processors()
+            result = face_processor.add_face_to_database(person_id, person_name, str(permanent_path))
+            if not result:
+                return jsonify({'error': 'Failed to process face embedding'}), 500
+        except Exception as e:
+            return jsonify({'error': f"AI processing error: {str(e)}"}), 500
+
+        # Create StoredFace record
+        embedding_path = str(app.config['FACE_EMBEDDINGS_FOLDER'] / f'{person_id}.pkl')
+        new_face = StoredFace(
+            readable_id=readable_id,
+            person_id=person_id,
+            person_name=person_name,
+            image_path=str(permanent_path),
+            embedding_path=embedding_path,
+            created_by=session.get('user_id')
+        )
+        
+        db.session.add(new_face)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f"Face added to database with ID: {readable_id}",
+            'face': new_face.to_dict()
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error adding face from upload: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+# ============================================================================
 # API ROUTES - Detection History
 # ============================================================================
 
 @app.route('/api/history', methods=['GET'])
+@login_required
 def get_history():
     """Get detection history"""
     try:
@@ -589,6 +951,7 @@ def get_history():
 
 
 @app.route('/api/history/<int:file_id>', methods=['GET'])
+@login_required
 def get_file_detections(file_id):
     """Get detections for specific file"""
     try:
@@ -632,6 +995,7 @@ def serve_face_image(filename):
 # ============================================================================
 
 @app.route('/api/stats', methods=['GET'])
+@login_required
 def get_stats():
     """Get system statistics"""
     try:
@@ -680,10 +1044,29 @@ def file_too_large(error):
 # ============================================================================
 
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables with default records"""
     with app.app_context():
+        # db.drop_all() # Uncomment to reset DB for migration
         db.create_all()
-        logger.info("Database initialized")
+        
+        # Create default admin user if none exists
+        admin = User.query.filter_by(readable_id='AD001').first()
+        if not admin:
+            # Check if there's any user with role 'ADMIN'
+            existing_admin = User.query.filter_by(role='ADMIN').first()
+            if not existing_admin:
+                admin = User(
+                    readable_id='AD001',
+                    email='admin@trueface.ai',
+                    full_name='System Administrator',
+                    role='ADMIN'
+                )
+                admin.set_password('admin123')
+                db.session.add(admin)
+                db.session.commit()
+                logger.info("Default admin user created: AD001 / admin123")
+            
+        logger.info("Database initialized successfully")
 
 
 # ============================================================================

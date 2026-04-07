@@ -1,35 +1,31 @@
 /**
- * History Page JavaScript
- * Display and filter detection history
+ * TrueFace AI - History Page Logic
+ * Handles activity logs, filtering, and report downloads.
  */
 
 const API_BASE = window.location.origin;
-let currentFilter = 'all';
 let historyData = [];
+let currentFilter = 'all';
 
 document.addEventListener('DOMContentLoaded', () => {
-    setupFilters();
+    // Auth Check
+    if (typeof auth !== 'undefined') {
+        auth.checkAuth();
+        const user = auth.getUser();
+        if (user) {
+            document.getElementById('user-display').textContent = user.readable_id;
+            
+            // Hide Admin link if not admin
+            if (!auth.hasRole('ADMIN')) {
+                document.querySelectorAll('[data-role="ADMIN"]').forEach(el => el.classList.add('hidden'));
+            }
+        }
+    }
+
     loadHistory();
+    setupFilters();
+    setupDownload();
 });
-
-/**
- * Setup filter buttons
- */
-function setupFilters() {
-    const filterBtns = document.querySelectorAll('.filter-btn');
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Update active state
-            filterBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // Apply filter
-            currentFilter = btn.dataset.filter;
-            displayHistory(historyData);
-        });
-    });
-}
 
 /**
  * Load history from API
@@ -41,165 +37,93 @@ async function loadHistory() {
 
         if (data.success) {
             historyData = data.history || [];
-            displayHistory(historyData);
+            displayHistory();
         } else {
-            showNoHistory();
+            document.getElementById('no-history').style.display = 'block';
         }
     } catch (error) {
         console.error('Error loading history:', error);
-        showNoHistory();
-    } finally {
-        hideLoading();
+        document.getElementById('no-history').style.display = 'block';
     }
 }
 
 /**
  * Display history items
  */
-function displayHistory(history) {
-    const container = document.getElementById('historyList');
+function displayHistory() {
+    const container = document.getElementById('history-list');
+    const noHistory = document.getElementById('no-history');
+    
+    const filtered = currentFilter === 'all' 
+        ? historyData 
+        : historyData.filter(h => h.file_type === currentFilter);
 
-    if (!container) return;
-
-    // Filter history
-    const filtered = currentFilter === 'all'
-        ? history
-        : history.filter(item => item.file_type === currentFilter);
-
+    container.innerHTML = '';
+    
     if (filtered.length === 0) {
-        showNoHistory();
+        noHistory.style.display = 'block';
         return;
     }
 
-    container.innerHTML = '';
-
-    filtered.forEach((item, index) => {
-        const card = createHistoryCard(item, index);
-        container.appendChild(card);
-    });
-
-    document.getElementById('noHistory').style.display = 'none';
-}
-
-/**
- * Create history card element
- */
-function createHistoryCard(item, index) {
-    const card = document.createElement('div');
-    card.className = 'upload-card fade-in';
-    card.style.animationDelay = `${index * 0.05}s`;
-    card.style.marginBottom = '1.5rem';
-
-    const uploadDate = new Date(item.upload_time);
-    const formattedDate = uploadDate.toLocaleString();
-    const fileSize = formatFileSize(item.file_size || 0);
-    const processingTime = item.processing_time?.toFixed(2) || 'N/A';
-
-    const detections = item.detections || [];
-    const totalDetections = detections.length;
-    const matchedDetections = detections.filter(d => d.is_match).length;
-
-    card.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-            <div>
-                <h3 class="card-title" style="margin-bottom: 0.25rem;">${item.filename}</h3>
-                <p class="text-muted" style="font-size: 0.875rem;">${formattedDate}</p>
-            </div>
-            <span class="badge ${item.file_type === 'image' ? 'badge-success' : 'badge-warning'}" style="text-transform: uppercase;">
-                ${item.file_type}
-            </span>
-        </div>
+    noHistory.style.display = 'none';
+    filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-            <div>
-                <div class="text-muted" style="font-size: 0.875rem;">File Size</div>
-                <div style="font-weight: 600;">${fileSize}</div>
-            </div>
-            <div>
-                <div class="text-muted" style="font-size: 0.875rem;">Processing Time</div>
-                <div style="font-weight: 600;">${processingTime}s</div>
-            </div>
-            <div>
-                <div class="text-muted" style="font-size: 0.875rem;">Detections</div>
-                <div style="font-weight: 600;">${totalDetections}</div>
-            </div>
-            <div>
-                <div class="text-muted" style="font-size: 0.875rem;">Matches</div>
-                <div style="font-weight: 600; color: var(--success-color);">${matchedDetections}</div>
-            </div>
-        </div>
+        const date = new Date(item.upload_time).toLocaleString();
+        const matches = (item.detections || []).filter(d => d.is_match).length;
         
-        ${totalDetections > 0 ? `
-            <details style="margin-top: 1rem;">
-                <summary style="cursor: pointer; font-weight: 600; color: var(--primary-color); user-select: none;">
-                    View Detections (${totalDetections})
-                </summary>
-                <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem;">
-                    ${createDetectionsList(detections)}
-                </div>
-            </details>
-        ` : '<p class="text-muted" style="margin-top: 1rem;">No faces detected in this file</p>'}
-    `;
-
-    return card;
-}
-
-/**
- * Create detections list HTML
- */
-function createDetectionsList(detections) {
-    return detections.map((det, idx) => {
-        const person = det.matched_person;
-        const personName = person ? person.name : 'Unknown';
-        const confidence = (det.confidence_score * 100).toFixed(1);
-
-        return `
-            <div style="padding: 0.75rem; background: var(--bg-primary); border-radius: 0.375rem; margin-bottom: 0.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight: 600;">${personName}</div>
-                        ${det.frame_number > 0 ? `<div class="text-muted" style="font-size: 0.875rem;">Frame ${det.frame_number}</div>` : ''}
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: 600; color: var(--primary-color);">${confidence}%</div>
-                        <span class="badge ${det.is_match ? 'badge-success' : 'badge-warning'}" style="font-size: 0.75rem;">
-                            ${det.is_match ? 'Matched' : 'Unknown'}
-                        </span>
-                    </div>
-                </div>
+        div.innerHTML = `
+            <div style="font-size: 0.8rem; font-weight: 700; width: 80px;">${item.file_type.toUpperCase()}</div>
+            <div>
+                <div style="font-weight: 700;">${item.filename}</div>
+                <div class="text-muted" style="font-size: 0.75rem;">${date} | ${item.processing_time?.toFixed(2)}s processing</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.85rem; font-weight: 700;">${matches} / ${(item.detections || []).length} Matches</div>
+                <div class="text-muted" style="font-size: 0.7rem;">${(item.file_size / 1024 / 1024).toFixed(2)} MB</div>
             </div>
         `;
-    }).join('');
+        container.appendChild(div);
+    });
 }
 
 /**
- * Show no history message
+ * Filter Logic
  */
-function showNoHistory() {
-    const list = document.getElementById('historyList');
-    const noHistory = document.getElementById('noHistory');
-
-    if (list) list.innerHTML = '';
-    if (noHistory) noHistory.style.display = 'block';
+function setupFilters() {
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.getAttribute('data-filter');
+            displayHistory();
+        }
+    });
 }
 
 /**
- * Hide loading indicator
+ * CSV Download Logic
  */
-function hideLoading() {
-    const loading = document.getElementById('loadingIndicator');
-    if (loading) loading.style.display = 'none';
-}
+function setupDownload() {
+    document.getElementById('btn-download-report').onclick = () => {
+        if (historyData.length === 0) return alert('No data to download.');
 
-/**
- * Utility: Format file size
- */
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
+        // Simple CSV construction
+        let csv = 'Filename,Type,Date,Detections,Matches,ProcessingTime(s)\n';
+        historyData.forEach(h => {
+            const matches = (h.detections || []).filter(d => d.is_match).length;
+            csv += `"${h.filename}",${h.file_type},"${new Date(h.upload_time).toLocaleString()}",${(h.detections || []).length},${matches},${h.processing_time?.toFixed(2)}\n`;
+        });
 
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `TrueFace_Report_${new Date().toLocaleDateString()}.csv`);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
 }

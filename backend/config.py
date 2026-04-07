@@ -13,7 +13,11 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'trueface-ai-secret-key-2026'
     
     # Database
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{BASE_DIR / "trueface.db"}'
+    _db_url = os.environ.get('DATABASE_URL')
+    if _db_url and _db_url.startswith("postgres://"):
+        _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+        
+    SQLALCHEMY_DATABASE_URI = _db_url or f'sqlite:///{BASE_DIR / "trueface.db"}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Upload settings
@@ -50,6 +54,14 @@ class Config:
     
     # API
     CORS_ORIGINS = ['http://localhost:5000', 'http://127.0.0.1:5000']
+    
+    # Alert System (Email)
+    ENABLE_ALERTS = os.environ.get('ENABLE_ALERTS', 'True').lower() == 'true'
+    MAIL_SERVER = os.environ.get('MAIL_SERVER') or 'smtp.gmail.com'
+    MAIL_PORT = int(os.environ.get('MAIL_PORT') or 587)
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME') or 'rakshithcherukuri12@gmail.com'
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD') or 'Rakshitha@2004'
+    ALERT_RECIPIENTS = os.environ.get('ALERT_RECIPIENTS', 'rakshithacherukuri2004@gmail.com').split(',')
     
     @staticmethod
     def init_app(app):

@@ -4,80 +4,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Management - TrueFace AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <title>Admin Dashboard - TrueFace AI</title>
     <link rel="stylesheet" href="css/styles.css">
+
+    <style>
+        .admin-section {
+            margin-bottom: 4rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 2px solid black;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        /* Header row with button */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
-        <nav class="navbar glass-panel">
-            <div class="brand">
-                <ion-icon name="scan-outline"></ion-icon>
-                TrueFace AI
-            </div>
-            <div class="nav-links">
-                <a href="index.html" class="nav-link">
-                    <ion-icon name="home-outline"></ion-icon> Home
-                </a>
-                <a href="history.html" class="nav-link">
-                    <ion-icon name="time-outline"></ion-icon> History
-                </a>
-                <a href="admin.html" class="nav-link active">
-                    <ion-icon name="people-outline"></ion-icon> Database
-                </a>
-            </div>
+
+        <!-- Navbar -->
+        <nav class="navbar">
+            <div class="brand">TrueFace AI</div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="history.html" class="nav-link">History</a></li>
+                <li><a href="admin.html" class="nav-link active">Admin</a></li>
+                <li style="margin-left: 1rem; border-left: 1px solid var(--border); padding-left: 1rem;">
+                    <span id="user-display" class="text-muted" style="font-size: 0.8rem; font-weight: 600;"></span>
+                </li>
+                <li><a href="#" id="logout-link" class="nav-link logout">Logout</a></li>
+            </ul>
         </nav>
 
-        <div class="results-container">
-            <!-- Add Face Form -->
-            <div class="glass-panel" style="padding: 2rem;">
-                <h2 style="margin-bottom: 1.5rem;">Add New Person</h2>
+        <!-- System Status -->
+        <section class="admin-section" style="margin-bottom: 2rem;">
+            <h3>System Status</h3>
 
-                <form id="add-face-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
-                    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 1rem;">
-                        <input type="file" id="face-image" accept="image/*" class="file-input" style="width: 100%;">
-                    </div>
+            <div class="home-grid stats-grid">
+                <div class="stark-box stat-card">
+                    <p class="text-muted" style="font-size: 0.7rem;">Total Encounters</p>
+                    <div class="stat-value" id="dash-total-detections">0</div>
+                </div>
 
-                    <div>
-                        <label style="color: var(--text-muted); font-size: 0.9rem;">Person ID</label>
-                        <input type="text" id="person-name" placeholder="E.g., USER_001"
-                            style="width: 100%; padding: 1rem; background: rgba(0,0,0,0.2); border: 1px solid var(--surface-glass-border); color: white; border-radius: 0.5rem; margin-top: 0.5rem;">
-                    </div>
+                <div class="stark-box stat-card">
+                    <p class="text-muted" style="font-size: 0.7rem;">Match Rate</p>
+                    <div class="stat-value" id="dash-match-rate">0%</div>
+                </div>
 
-                    <button type="submit" class="btn btn-primary">
-                        <ion-icon name="add-circle-outline"></ion-icon> Add to Database
-                    </button>
-                    <div id="upload-status" style="text-align: center;"></div>
-                </form>
-            </div>
-
-            <!-- Face List -->
-            <div class="glass-panel" style="padding: 2rem;">
-                <h2 style="margin-bottom: 1.5rem;">Registered Faces</h2>
-                <div id="faces-list" class="detections-list">
-                    <!-- Faces injected by JS -->
+                <div class="stark-box stat-card">
+                    <p class="text-muted" style="font-size: 0.7rem;">Active Users</p>
+                    <div class="stat-value" id="dash-active-users">0</div>
                 </div>
             </div>
+        </section>
+
+        <!-- Tabs -->
+        <div class="tab-switcher">
+            <button id="tab-users-btn" class="tab-btn active">User Management</button>
+            <button id="tab-db-btn" class="tab-btn">Face Database</button>
+        </div>
+
+        <div id="admin-content-panes">
+
+            <!-- USERS -->
+            <section id="sec-users" class="admin-pane">
+                <div class="stark-box">
+
+                    <div class="section-header">
+                        <h4>Registered Personnel</h4>
+                        <button id="add-user-btn" class="btn btn-primary">+ Add User</button>
+                    </div>
+
+                    <div style="overflow-x:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Role</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body"></tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- DATABASE -->
+            <section id="sec-database" class="admin-pane hidden">
+                <div class="stark-box">
+
+                    <div class="section-header">
+                        <h4>Registered Biometric Data</h4>
+                        <button id="add-face-btn" class="btn btn-primary">+ Add Face</button>
+                    </div>
+
+                    <div id="faces-list" style="max-height: 500px; overflow-y:auto;"></div>
+
+                </div>
+            </section>
+
         </div>
     </div>
 
-    <!-- Delete Modal -->
-    <div id="delete-modal" class="processing-overlay" style="display: none;">
-        <div class="glass-panel" style="padding: 2rem; max-width: 400px; text-align: center;">
-            <ion-icon name="warning-outline" style="font-size: 3rem; color: var(--error);"></ion-icon>
-            <h2 style="margin: 1rem 0;">Confirm Deletion</h2>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;">Are you sure you want to delete this face from the
-                database?</p>
-            <div style="display: flex; gap: 1rem; justify-content: center;">
-                <button id="cancel-delete" class="btn btn-secondary">Cancel</button>
-                <button id="confirm-delete" class="btn btn-primary" style="background: var(--error);">Delete</button>
+    <!-- FORM MODAL -->
+    <div id="form-modal" class="processing-overlay" style="display:none;">
+        <div class="stark-box auth-form">
+            <h3 id="form-title">Add</h3>
+
+            <form id="dynamic-form"></form>
+
+            <div style="display:flex; gap:1rem; margin-top:1rem;">
+                <button id="form-cancel" class="btn btn-secondary" style="flex:1;">Cancel</button>
+                <button id="form-submit" class="btn btn-primary" style="flex:1;">Submit</button>
             </div>
         </div>
     </div>
 
+    <!-- EXISTING MODALS -->
+    <div id="confirm-modal" class="processing-overlay" style="display:none;">
+        <div class="stark-box auth-form" style="text-align:center;">
+            <h3 id="modal-title">Confirm Action</h3>
+            <p id="modal-text" class="text-muted">This action cannot be undone.</p>
+
+            <div style="display:flex; gap:1rem;">
+                <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+                <button id="modal-confirm" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="processing-overlay" class="processing-overlay">
+        <div
+            style="border:4px solid #eee; border-top:4px solid black; width:40px; height:40px; border-radius:50%; animation:spin 1s linear infinite;">
+        </div>
+        <h3>Working...</h3>
+    </div>
+
+    <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
+
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+    <script>
+        document.getElementById('logout-link').onclick = (e) => {
+            e.preventDefault();
+            auth.logout();
+        };
+    </script>
+</body>
+
 </body>
 
 </html>

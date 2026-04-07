@@ -1,6 +1,6 @@
 /**
  * TrueFace AI - Main JavaScript
- * Handles file uploads, API communication, and UI interactions
+ * Handles file uploads, API communication, and UI-RBAC integration.
  */
 
 // API Configuration
@@ -16,21 +16,42 @@ const state = {
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Mandatory Auth Check
+    if (typeof auth !== 'undefined') {
+        auth.checkAuth();
+        updateUIForRole();
+    }
+
     initializeUploadZones();
     loadSystemStats();
 });
 
 /**
+ * Update UI elements based on user role using data-role attributes
+ */
+function updateUIForRole() {
+    const user = auth.getUser();
+    if (!user) return;
+
+    // Display user ID
+    const display = document.getElementById('user-display');
+    if (display) display.textContent = user.readable_id;
+
+    // Hide/Show based on roles
+    document.querySelectorAll('[data-role]').forEach(el => {
+        const requiredRole = el.getAttribute('data-role');
+        if (!auth.hasRole(requiredRole)) {
+            el.classList.add('hidden');
+        }
+    });
+}
+
+/**
  * Initialize drag-and-drop upload zones
  */
 function initializeUploadZones() {
-    // Image upload zone
     setupUploadZone('drop-zone-image', 'file-input-image', 'image');
-
-    // Video upload zone
     setupUploadZone('drop-zone-video', 'file-input-video', 'video');
-
-    // Database upload zone
     setupDatabaseZone();
 }
 
@@ -39,43 +60,41 @@ function initializeUploadZones() {
  */
 function setupUploadZone(zoneId, inputId, type) {
     const zone = document.getElementById(zoneId);
+    if (!zone) return;
+
     const input = document.getElementById(inputId);
     const btnId = type === 'image' ? 'btn-process-image' : 'btn-process-video';
     const btn = document.getElementById(btnId);
 
-    if (!zone || !input) return;
+    if (!input) return;
 
-    // Click to upload
     zone.addEventListener('click', (e) => {
         if (e.target !== btn && e.target.tagName !== 'BUTTON') {
             input.click();
         }
     });
 
-    // File selection
     input.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) handleFileSelect(file, zone, type);
     });
 
-    // Drag and drop
     zone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        zone.classList.add('drag-over');
+        zone.style.borderColor = 'black';
     });
 
     zone.addEventListener('dragleave', () => {
-        zone.classList.remove('drag-over');
+        zone.style.borderColor = 'var(--border)';
     });
 
     zone.addEventListener('drop', (e) => {
         e.preventDefault();
-        zone.classList.remove('drag-over');
+        zone.style.borderColor = 'var(--border)';
         const file = e.dataTransfer.files[0];
         if (file) handleFileSelect(file, zone, type);
     });
 
-    // Process Button
     if (btn) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -85,7 +104,7 @@ function setupUploadZone(zoneId, inputId, type) {
 }
 
 /**
- * Setup Database Upload Zone
+ * Setup Database Upload Zone (Role-restricted already by HTML/CSS)
  */
 function setupDatabaseZone() {
     const zone = document.getElementById('drop-zone-database');
@@ -96,14 +115,12 @@ function setupDatabaseZone() {
 
     if (!zone || !input) return;
 
-    // Click to upload (only if not clicking inputs)
     zone.addEventListener('click', (e) => {
         if (!inputsContainer.contains(e.target)) {
             input.click();
         }
     });
 
-    // Handle File
     const handleDbFile = (file) => {
         if (!file.type.startsWith('image/')) {
             showNotification('Please upload an image file', 'error');
@@ -111,8 +128,6 @@ function setupDatabaseZone() {
         }
 
         state.dbFile = file;
-
-        // Show preview
         const reader = new FileReader();
         reader.onload = (e) => {
             previewImg.src = e.target.result;
@@ -126,20 +141,6 @@ function setupDatabaseZone() {
         if (e.target.files[0]) handleDbFile(e.target.files[0]);
     });
 
-    zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        zone.classList.add('drag-over');
-    });
-
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-
-    zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        zone.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) handleDbFile(e.dataTransfer.files[0]);
-    });
-
-    // Save Button
     if (saveBtn) {
         saveBtn.addEventListener('click', async () => {
             const name = document.getElementById('db-person-name').value.trim();
@@ -150,10 +151,9 @@ function setupDatabaseZone() {
                 return;
             }
 
-            // Disable button
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<ion-icon name="hourglass-outline"></ion-icon> Saving...';
-            msg.textContent = 'Training model... This takes a moment.';
+            saveBtn.textContent = 'Saving...';
+            msg.textContent = 'Processing biometric data...';
 
             try {
                 const formData = new FormData();
@@ -169,24 +169,19 @@ function setupDatabaseZone() {
 
                 if (response.ok) {
                     showNotification('Face added successfully!', 'success');
-                    msg.textContent = `Success! Added ID: ${data.person_id}`;
-                    msg.style.color = 'var(--success)';
-
-                    // Reset after 2 seconds
+                    msg.textContent = `Success: ${data.person_id}`;
                     setTimeout(() => {
                         resetDatabaseZone();
-                        loadSystemStats(); // Refresh stats
+                        loadSystemStats();
                     }, 2000);
                 } else {
                     throw new Error(data.error || 'Failed to add face');
                 }
             } catch (error) {
-                console.error(error);
                 showNotification(error.message, 'error');
                 msg.textContent = 'Error: ' + error.message;
-                msg.style.color = 'var(--error)';
                 saveBtn.disabled = false;
-                saveBtn.innerHTML = '<ion-icon name="save-outline"></ion-icon> Save Face';
+                saveBtn.textContent = 'Save Face';
             }
         });
     }
@@ -197,16 +192,12 @@ function setupDatabaseZone() {
         inputsContainer.style.display = 'none';
         zone.querySelector('.upload-area').style.display = 'block';
         saveBtn.disabled = false;
-        saveBtn.innerHTML = '<ion-icon name="save-outline"></ion-icon> Save Face';
+        saveBtn.textContent = 'Save Face';
         msg.textContent = '';
     }
 }
 
-/**
- * Handle file selection for processing
- */
 function handleFileSelect(file, zone, type) {
-    // Validate file type
     const validTypes = type === 'image'
         ? ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/webp']
         : ['video/mp4', 'video/avi', 'video/mov', 'video/mkv', 'video/webm'];
@@ -216,14 +207,9 @@ function handleFileSelect(file, zone, type) {
         return;
     }
 
-    // Update state
-    if (type === 'image') {
-        state.imageFile = file;
-    } else {
-        state.videoFile = file;
-    }
+    if (type === 'image') state.imageFile = file;
+    else state.videoFile = file;
 
-    // Show Preview
     const container = document.getElementById(`preview-container-${type}`);
     const filename = document.getElementById(`filename-${type}`);
     const uploadArea = zone.querySelector('.upload-area');
@@ -235,9 +221,6 @@ function handleFileSelect(file, zone, type) {
     }
 }
 
-/**
- * Upload and process file
- */
 async function processFile(type) {
     if (state.processing) return;
 
@@ -250,7 +233,6 @@ async function processFile(type) {
     try {
         const formData = new FormData();
         formData.append('file', file);
-
         const endpoint = type === 'image' ? '/api/upload/image' : '/api/upload/video';
 
         const response = await fetch(API_BASE + endpoint, {
@@ -259,20 +241,14 @@ async function processFile(type) {
         });
 
         const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Processing failed');
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Processing failed');
-        }
-
-        // Store results and redirect
         sessionStorage.setItem('detectionResults', JSON.stringify(data));
         window.location.href = 'results.html';
 
     } catch (error) {
-        console.error('Upload error:', error);
         showProcessingOverlay(false);
         showNotification(error.message || 'Processing failed', 'error');
-
         // Reset UI
         const zone = document.getElementById(`drop-zone-${type}`);
         const container = document.getElementById(`preview-container-${type}`);
@@ -283,19 +259,16 @@ async function processFile(type) {
     }
 }
 
-/**
- * Show/Hide Overlay
- */
 function showProcessingOverlay(show) {
     const overlay = document.getElementById('processing-overlay');
     if (overlay) overlay.style.display = show ? 'flex' : 'none';
 }
 
-/**
- * Load system statistics
- */
 async function loadSystemStats() {
     try {
+        // Need to be logged in for stats
+        if (!auth.isAuthenticated()) return;
+        
         const response = await fetch(API_BASE + '/api/stats');
         const data = await response.json();
 
@@ -314,30 +287,28 @@ function updateElement(id, value) {
     if (el) el.textContent = value;
 }
 
-/**
- * Show notification
- */
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
-    notification.className = `glass-panel`;
+    notification.className = 'stark-box';
     notification.textContent = message;
     notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
         padding: 1rem 1.5rem;
-        background: ${type === 'error' ? 'rgba(239, 68, 68, 0.9)' : type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(59, 130, 246, 0.9)'};
+        background: black;
         color: white;
-        border-radius: 0.5rem;
         z-index: 3000;
-        animation: fadeIn 0.3s ease-out;
-        border: 1px solid rgba(255,255,255,0.2);
+        font-weight: 500;
+        font-size: 0.9rem;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     `;
 
     document.body.appendChild(notification);
-
     setTimeout(() => {
         notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s';
         setTimeout(() => notification.remove(), 300);
     }, 3000);
 }

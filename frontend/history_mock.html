@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection History (Mock) - TrueFace AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .privacy-mask {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .privacy-mask::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.02) 5px, rgba(255,255,255,0.02) 10px);
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 0.8rem;
+        }
+
+        .history-row {
+            background: rgba(255, 255, 255, 0.02);
+            transition: transform 0.2s;
+        }
+
+        .history-row:hover {
+            background: rgba(255, 255, 255, 0.04);
+            transform: translateX(5px);
+        }
+
+        .history-td {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .history-td:first-child {
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem 0 0 1rem;
+        }
+
+        .history-td:last-child {
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0 1rem 1rem 0;
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.6rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-verified { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .status-unknown { background: rgba(255, 193, 7, 0.1); color: #ffc107; }
+        .status-alert { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 1000px; padding: 2rem;">
+        <nav class="navbar glass-panel" style="margin-bottom: 2rem;">
+            <div class="brand">
+                <ion-icon name="scan-outline"></ion-icon> TrueFace AI
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <ion-icon name="home-outline"></ion-icon> Home
+                </a>
+            </div>
+        </nav>
+
+        <header style="margin-bottom: 2rem;">
+            <h1 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Activity Log</h1>
+            <p style="color: var(--text-muted);">Real-time monitoring and detection history.</p>
+        </header>
+
+        <div class="glass-panel" style="padding: 1.5rem;">
+            <table class="history-table">
+                <thead>
+                    <tr style="text-align: left; color: var(--text-muted); font-size: 0.85rem;">
+                        <th style="padding: 1rem;">Visual</th>
+                        <th>Timestamp</th>
+                        <th>Subject</th>
+                        <th>Confidence</th>
+                        <th>Occlusion</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Row 1 -->
+                    <tr class="history-row">
+                        <td class="history-td">
+                            <div class="privacy-mask"><ion-icon name="eye-off-outline"></ion-icon></div>
+                        </td>
+                        <td class="history-td" style="font-size: 0.9rem;">2026-04-03 23:45:12</td>
+                        <td class="history-td">
+                            <div style="font-weight: 600;">Chris Evans</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">USER_001</div>
+                        </td>
+                        <td class="history-td" style="font-weight: 700; color: var(--success);">94%</td>
+                        <td class="history-td" style="font-size: 0.85rem;">25% (Glasses)</td>
+                        <td class="history-td">
+                            <span class="status-badge status-verified">Verified</span>
+                        </td>
+                    </tr>
+                    <!-- Row 2 -->
+                    <tr class="history-row">
+                        <td class="history-td">
+                            <div class="privacy-mask"><ion-icon name="eye-off-outline"></ion-icon></div>
+                        </td>
+                        <td class="history-td" style="font-size: 0.9rem;">2026-04-03 23:30:05</td>
+                        <td class="history-td">
+                            <div style="font-weight: 600;">Unknown</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">NEW_DETECTION</div>
+                        </td>
+                        <td class="history-td" style="font-weight: 700; color: #ffc107;">--</td>
+                        <td class="history-td" style="font-size: 0.85rem;">45% (Mask)</td>
+                        <td class="history-td">
+                            <span class="status-badge status-unknown">Logged</span>
+                        </td>
+                    </tr>
+                    <!-- Row 3 -->
+                    <tr class="history-row">
+                        <td class="history-td">
+                            <div class="privacy-mask"><ion-icon name="eye-off-outline"></ion-icon></div>
+                        </td>
+                        <td class="history-td" style="font-size: 0.9rem;">2026-04-03 22:15:44</td>
+                        <td class="history-td">
+                            <div style="font-weight: 600;">Unauthorized</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">BLACKLIST_04</div>
+                        </td>
+                        <td class="history-td" style="font-weight: 700; color: var(--secondary);">88%</td>
+                        <td class="history-td" style="font-size: 0.85rem;">15% (None)</td>
+                        <td class="history-td">
+                            <span class="status-badge status-alert">Alert</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

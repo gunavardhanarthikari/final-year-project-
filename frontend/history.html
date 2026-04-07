@@ -1,52 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detection History - TrueFace AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <title>Activity History - TrueFace AI</title>
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .filter-btn { padding: 0.4rem 1rem; font-size: 0.8rem; border: 1px solid var(--border); background: white; cursor: pointer; }
+        .filter-btn.active { background: black; color: white; border-color: black; }
+        .history-item { border-bottom: 1px solid var(--border); padding: 1.5rem 0; display: grid; grid-template-columns: auto 1fr auto; gap: 2rem; align-items: center; }
+        .history-item:last-child { border-bottom: none; }
+    </style>
 </head>
-
 <body>
     <div class="container">
-        <nav class="navbar glass-panel">
-            <div class="brand">
-                <ion-icon name="scan-outline"></ion-icon>
-                TrueFace AI
-            </div>
-            <div class="nav-links">
-                <a href="index.html" class="nav-link">
-                    <ion-icon name="home-outline"></ion-icon> Home
-                </a>
-                <a href="history.html" class="nav-link active">
-                    <ion-icon name="time-outline"></ion-icon> History
-                </a>
-                <a href="admin.html" class="nav-link">
-                    <ion-icon name="people-outline"></ion-icon> Database
-                </a>
-            </div>
+        <!-- Navigation -->
+        <!-- Navigation (Standardized) -->
+        <nav class="navbar">
+            <div class="brand">TrueFace AI</div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="history.html" class="nav-link active">History</a></li>
+                <li data-role="ADMIN"><a href="admin.html" class="nav-link">Admin</a></li>
+                <li style="margin-left: 1rem; border-left: 1px solid var(--border); padding-left: 1rem;">
+                    <span id="user-display" class="text-muted" style="font-size: 0.8rem; font-weight: 600;"></span>
+                </li>
+                <li><a href="#" id="logout-link" class="nav-link logout">Logout</a></li>
+            </ul>
         </nav>
 
-        <div class="glass-panel" style="padding: 2rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h2>Activity Log</h2>
-                <div class="filter-group" style="display: flex; gap: 1rem;">
-                    <button class="btn btn-secondary active" onclick="filterHistory('all')">All</button>
-                    <button class="btn btn-secondary" onclick="filterHistory('image')">Images</button>
-                    <button class="btn btn-secondary" onclick="filterHistory('video')">Videos</button>
+        <section class="stark-box">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; border-bottom: 2px solid black; padding-bottom: 1rem;">
+                <div>
+                    <h2>Activity Log</h2>
+                    <p class="text-muted" style="font-size: 0.8rem;">Historical record of all biometric detections.</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="image">Images</button>
+                    <button class="filter-btn" data-filter="video">Videos</button>
+                    <button id="btn-download-report" class="btn btn-primary" style="margin-left: 1rem; padding: 0.4rem 1rem; font-size: 0.8rem;">Download CSV</button>
                 </div>
             </div>
 
-            <div id="history-list" class="detections-list" style="max-height: 70vh;">
-                <!-- History items injected by JS -->
+            <div id="history-list">
+                <!-- History items injected here -->
             </div>
-        </div>
+
+            <div id="no-history" style="display: none; text-align: center; padding: 5rem 0;">
+                <p class="text-muted">No activity records found.</p>
+            </div>
+        </section>
     </div>
 
+    <script src="js/auth.js"></script>
     <script src="js/history.js"></script>
+    <script>
+        document.getElementById('logout-link').onclick = (e) => {
+            e.preventDefault();
+            auth.logout();
+        };
+    </script>
 </body>
-
 </html>

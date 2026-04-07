@@ -1,0 +1,25 @@
+# TrueFace AI Environment Configuration
+# Copy this file to .env and fill in your details
+
+# Database Configuration
+# ----------------------
+# For Local Development (SQLite):
+# SQLALCHEMY_DATABASE_URI=sqlite:///trueface.db
+
+# For Production/Global Sync (PostgreSQL):
+# Get your URI from Supabase or Neon.tech
+DATABASE_URL=postgresql://postgres:Truface@2026@db.cvsnrofpucwcdbiewupv.supabase.co:5432/postgres
+
+
+# Email Alert Configuration (SMTP)
+# -------------------------------
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=rakshithcherukuri12@gmail.com
+MAIL_PASSWORD=Raksitha@2004
+ALERT_RECIPIENTS=arakshithacherukuri2004@gmail.com
+
+
+# Security
+# --------
+SECRET_KEY=generate-a-random-string-here

@@ -6,11 +6,11 @@ A professional academic-grade web application for robust face detection and iden
 
 ## Features
 
-- **Robust Face Detection**: Detects faces under various occlusion conditions
-- **Face Identification**: Matches detected faces against pre-stored database
-- **Image & Video Support**: Process both static images and video files
-- **Detection History**: Track all detections with confidence scores
-- **Professional UI**: Clean, academic-grade interface
+- **Robust Face Detection**: Optmized for heavy occlusion using RetinaFace.
+- **Role-Based Access Control**: Multi-user system with Admin, Manager, and Viewer roles.
+- **Global Synchronization**: PostgreSQL support for cross-device data consistency.
+- **Automated Alerts**: Dual-channel email notifications for face matches.
+- **Advanced Dashboard**: Real-time analytics for system activity and detection accuracy.
 
 ## System Architecture
 
@@ -19,91 +19,82 @@ TrueFace AI/
 ├── backend/                 # Flask API server
 │   ├── app.py              # Main application
 │   ├── models/             # AI models & face processing
-│   ├── database/           # Database models & operations
-│   ├── utils/              # Utility functions
+│   ├── database/           # Database models & operations (PostgreSQL/SQLite)
+│   ├── utils/              # Utility functions (ID Gen, Notifier)
 │   └── uploads/            # Temporary file storage
 ├── frontend/               # Web interface
-│   ├── index.html          # Home page
-│   ├── results.html        # Results display
-│   ├── history.html        # Detection history
-│   ├── admin.html          # Face database management
-│   ├── css/                # Stylesheets
-│   └── js/                 # JavaScript modules
-├── face_database/          # Stored face embeddings
+├── face_database/          # Stored face embeddings & images
+├── .env                    # Environment configuration (Private)
 └── requirements.txt        # Python dependencies
 ```
 
 ## Tech Stack
 
 - **Backend**: Flask, SQLAlchemy
-- **AI/ML**: DeepFace, MTCNN, FaceNet, OpenCV
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Database**: SQLite
+- **AI/ML**: DeepFace, RetinaFace, FaceNet, OpenCV
+- **Database**: PostgreSQL (Cloud/Global) or SQLite (Local)
+- **Email**: SMTP handles matching alerts
 
 ## Installation
 
-1. **Clone the repository**
-   ```bash
-   cd "f:\COLLEGE PROJECT 2"
-   ```
+### 1. Clone & Set Up
+```bash
+git clone <repository-url>
+cd trueface-ai
+python -m venv venv
+venv\Scripts\activate
+```
 
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   venv\Scripts\activate
-   ```
+### 2. Install Dependencies
+```bash
+pip install -r requirements.txt
+pip install psycopg2-binary
+```
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 3. Environment Configuration
+Copy `.env.example` to `.env` and fill in your details:
+- **`DATABASE_URL`**: Your PostgreSQL URI (e.g., from Supabase).
+- **`MAIL_USERNAME/PASSWORD`**: Your SMTP credentials for alerts.
 
-4. **Initialize database**
-   ```bash
-   python backend/init_db.py
-   ```
+### 4. Run the Application
+```bash
+python backend/app.py
+```
 
-5. **Run the application**
-   ```bash
-   python backend/app.py
-   ```
+## Authentication & Roles
 
-6. **Access the application**
-   Open browser: `http://localhost:5000`
+The system uses a sequential ID system for security and auditing:
+
+| ID Pattern | Role | Permissions |
+| :--- | :--- | :--- |
+| **`AD###`** | Administrator | Full control, User Management, Dashboard Stats. |
+| **`MG###`** | Manager | Upload files, add NEW faces to the database. |
+| **`VW###`** | Viewer | Upload files and see match results only. |
+
+**Default Admin**: On first run, a default account is created:
+- **Identifier**: `AD001` (or `admin@trueface.ai`)
+- **Password**: `admin123`
 
 ## Usage
 
-### Adding Faces to Database
-1. Navigate to Admin Panel
-2. Upload face images with labels (name/ID)
-3. System generates and stores embeddings
+### Face Enrollment (Managers/Admins)
+1. Enroll faces via the Admin panel.
+2. The system assigns a unique **`FC###`** ID to every enrolled person.
 
-### Face Detection & Identification
-1. Upload image or video file
-2. System processes and detects faces
-3. View results with bounding boxes and confidence scores
-4. Check detection history for all past detections
-
-## API Endpoints
-
-- `POST /api/upload/image` - Upload and process image
-- `POST /api/upload/video` - Upload and process video
-- `GET /api/history` - Retrieve detection history
-- `POST /api/face/add` - Add face to database
-- `GET /api/face/list` - List all stored faces
-- `DELETE /api/face/<id>` - Remove face from database
+### Alerts & Notifications
+When a successful match is detected:
+1. An email is sent to the **Global Admin**.
+2. An email is sent to the **Uploader's** address.
+3. The email includes detection confidence and a face crop attachment.
 
 ## Performance
 
-- Optimized for partial occlusion (40-50% coverage)
-- Real-time processing for images
-- Efficient frame-by-frame video processing
-- Confidence thresholding for accurate matches
+- **Occlusion Handling**: Handles up to 50% coverage (masks/helmets).
+- **Match Accuracy**: uses FaceNet512 for high-precision verification.
+- **Concurrency**: PostgreSQL ensures stable data access across multiple devices.
 
 ## Academic Use
-
-This system is designed for academic demonstrations, research, and evaluation purposes. The architecture is modular and extensible for future enhancements.
+This system is designed for academic demonstrations and research. 
 
 ## License
-
 Academic Project - 2026

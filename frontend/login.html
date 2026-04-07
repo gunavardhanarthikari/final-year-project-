@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - TrueFace AI</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="auth-container">
+    <div class="auth-form stark-box" style="padding: 2.2rem;">
+        <div class="brand" style="margin-bottom: 2.5rem; border-bottom: 2px solid black; padding-bottom: 1rem;">
+            TrueFace AI
+        </div>
+
+        <h2>Sign In</h2>
+        <p class="text-muted" style="margin-bottom: 2rem; font-size: 0.9rem;">
+            Use your Email or Public ID to continue.
+        </p>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Identifier</label>
+                <input type="text" id="username" class="form-input" placeholder="Email or ID (e.g. AD001)" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+            </div>
+
+            <div id="loginError" class="text-muted"
+                style="margin-bottom: 1rem; color: #ff0000; font-size: 0.8rem; display: none;">
+                Invalid credentials. Please try again.
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+        </form>
+
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.8rem;"
+            class="text-muted">
+            <p><strong>System Note:</strong> Restricted access platform. All activities are logged.</p>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const identifier = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+
+            const success = await auth.login(identifier, password);
+            if (success) {
+                window.location.href = 'index.html';
+            } else {
+                errorDiv.style.display = 'block';
+            }
+        });
+
+        // If already logged in, redirect
+        if (typeof auth !== 'undefined' && auth.isAuthenticated()) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+
+</html>

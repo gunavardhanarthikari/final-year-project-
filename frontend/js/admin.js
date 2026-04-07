@@ -1,316 +1,280 @@
 /**
- * Admin Page JavaScript
- * Manage face database - add and delete faces
+ * TrueFace AI - Admin Page Logic
+ * Handles system analytics, user management, and face database.
  */
 
 const API_BASE = window.location.origin;
-let faceToDelete = null;
+let deleteTarget = null;
+let deleteType = null; // 'user' or 'face'
 
 document.addEventListener('DOMContentLoaded', () => {
-    setupUploadZone();
-    setupForm();
-    setupDeleteModal();
+    // Auth Check
+    if (typeof auth !== 'undefined') {
+        auth.checkAuth();
+        if (!auth.hasRole('ADMIN')) {
+            window.location.href = 'index.html';
+            return;
+        }
+        const user = auth.getUser();
+        if (user) document.getElementById('user-display').textContent = user.readable_id;
+    }
+
+    loadDashboard();
+    loadUsers();
     loadFaces();
+    setupForms();
+    setupModal();
+    setupAdminTabs();
 });
 
 /**
- * Setup face image upload zone
+ * Tab Switching Logic
  */
-function setupUploadZone() {
-    const zone = document.getElementById('faceUploadZone');
-    const input = document.getElementById('faceImageInput');
+function setupAdminTabs() {
+    const tabUsersBtn = document.getElementById('tab-users-btn');
+    const tabDbBtn = document.getElementById('tab-db-btn');
+    const secUsers = document.getElementById('sec-users');
+    const secDatabase = document.getElementById('sec-database');
 
-    if (!zone || !input) return;
+    tabUsersBtn.onclick = () => {
+        tabUsersBtn.classList.add('active');
+        tabDbBtn.classList.remove('active');
+        secUsers.classList.remove('hidden');
+        secDatabase.classList.add('hidden');
+    };
 
-    // Click to upload
-    zone.addEventListener('click', () => input.click());
-
-    // File selection
-    input.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            zone.classList.add('has-file');
-            zone.querySelector('p').textContent = `Selected: ${file.name}`;
-        }
-    });
-
-    // Drag and drop
-    zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        zone.classList.add('drag-over');
-    });
-
-    zone.addEventListener('dragleave', () => {
-        zone.classList.remove('drag-over');
-    });
-
-    zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        zone.classList.remove('drag-over');
-
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            input.files = dataTransfer.files;
-
-            zone.classList.add('has-file');
-            zone.querySelector('p').textContent = `Selected: ${file.name}`;
-        }
-    });
+    tabDbBtn.onclick = () => {
+        tabDbBtn.classList.add('active');
+        tabUsersBtn.classList.remove('active');
+        secDatabase.classList.remove('hidden');
+        secUsers.classList.add('hidden');
+    };
 }
 
 /**
- * Setup add face form
+ * Load System Dashboard Statistics
  */
-function setupForm() {
-    const form = document.getElementById('addFaceForm');
-
-    if (!form) return;
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const personId = document.getElementById('personId').value.trim();
-        const personName = document.getElementById('personName').value.trim();
-        const fileInput = document.getElementById('faceImageInput');
-        const file = fileInput.files[0];
-
-        if (!personId || !personName || !file) {
-            showNotification('Please fill all fields and select an image', 'error');
-            return;
+async function loadDashboard() {
+    try {
+        const res = await fetch(API_BASE + '/api/admin/dashboard');
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('dash-total-detections').textContent = data.stats.total_detections;
+            document.getElementById('dash-match-rate').textContent = data.stats.match_rate + '%';
+            document.getElementById('dash-active-users').textContent = data.stats.user_counts.ADMIN + data.stats.user_counts.MANAGER + data.stats.user_counts.VIEWER;
         }
+    } catch (e) {
+        console.error('Stats error:', e);
+    }
+}
 
-        // Create form data
-        const formData = new FormData();
-        formData.append('person_id', personId);
-        formData.append('person_name', personName);
-        formData.append('file', file);
-
-        try {
-            showNotification('Adding face to database...', 'info');
-
-            const response = await fetch(API_BASE + '/api/face/add', {
-                method: 'POST',
-                body: formData
+/**
+ * Load and List Users
+ */
+async function loadUsers() {
+    try {
+        const res = await fetch(API_BASE + '/api/admin/users');
+        const data = await res.json();
+        if (data.success) {
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = '';
+            data.users.forEach(user => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 700;">${user.readable_id}</td>
+                    <td>${user.full_name}</td>
+                    <td><span style="font-size: 0.7rem; background: #eee; padding: 2px 6px;">${user.role}</span></td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.7rem;" onclick="confirmDelete('${user.id}', 'user')">Deactivate</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
             });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to add face');
-            }
-
-            showNotification('Face added successfully!', 'success');
-
-            // Reset form
-            form.reset();
-            const zone = document.getElementById('faceUploadZone');
-            zone.classList.remove('has-file');
-            zone.querySelector('p').textContent = 'Click or drag face image here';
-
-            // Reload faces
-            loadFaces();
-
-        } catch (error) {
-            console.error('Error adding face:', error);
-            showNotification(error.message || 'Failed to add face', 'error');
         }
-    });
-}
-
-/**
- * Setup delete confirmation modal
- */
-function setupDeleteModal() {
-    const modal = document.getElementById('deleteModal');
-    const cancelBtn = document.getElementById('cancelDeleteBtn');
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            modal.classList.remove('active');
-            faceToDelete = null;
-        });
-    }
-
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', async () => {
-            if (faceToDelete) {
-                await deleteFace(faceToDelete);
-                modal.classList.remove('active');
-                faceToDelete = null;
-            }
-        });
+    } catch (e) {
+        console.error('Load users error:', e);
     }
 }
 
 /**
- * Load all faces from database
+ * Load Registered Faces
  */
 async function loadFaces() {
     try {
-        const response = await fetch(API_BASE + '/api/face/list');
-        const data = await response.json();
+        const res = await fetch(API_BASE + '/api/face/list');
+        const data = await res.json();
+        const container = document.getElementById('faces-list');
+        container.innerHTML = '';
 
-        if (data.success) {
-            displayFaces(data.faces || []);
-            updateElement('totalStoredFaces', data.total || 0);
+        if (data.success && data.faces.length > 0) {
+            data.faces.forEach(face => {
+                const item = document.createElement('div');
+                item.className = 'detection-item';
+                item.style.padding = '0.5rem 0';
+                item.innerHTML = `
+                    <div style="flex: 1;">
+                        <span style="font-weight: 700; font-size: 0.9rem;">${face.person_name}</span>
+                        <div class="text-muted" style="font-size: 0.7rem;">${face.person_id}</div>
+                    </div>
+                    <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" onclick="confirmDelete('${face.id}', 'face')">Remove</button>
+                `;
+                container.appendChild(item);
+            });
         } else {
-            showNoFaces();
+            container.innerHTML = '<p class="text-muted" style="font-size: 0.8rem;">No faces registered.</p>';
         }
-    } catch (error) {
-        console.error('Error loading faces:', error);
-        showNoFaces();
-    } finally {
-        hideLoading();
+    } catch (e) {
+        console.error('Load faces error:', e);
     }
 }
 
 /**
- * Display face cards
+ * Modal Handling
  */
-function displayFaces(faces) {
-    const grid = document.getElementById('faceGrid');
-    const noFaces = document.getElementById('noFaces');
+function setupModal() {
+    const modal = document.getElementById('confirm-modal');
+    document.getElementById('modal-cancel').onclick = () => modal.style.display = 'none';
 
-    if (!grid) return;
+    document.getElementById('modal-confirm').onclick = async () => {
+        const endpoint = deleteType === 'user' ? `/api/admin/user/${deleteTarget}` : `/api/face/${deleteTarget}`;
+        try {
+            const res = await fetch(API_BASE + endpoint, { method: 'DELETE' });
+            if (res.ok) {
+                modal.style.display = 'none';
+                if (deleteType === 'user') loadUsers();
+                else loadFaces();
+            } else {
+                const d = await res.json();
+                alert(d.error || 'Operation failed');
+            }
+        } catch (e) {
+            alert('Server error');
+        }
+    };
+}
 
-    if (faces.length === 0) {
-        showNoFaces();
-        return;
-    }
-
-    grid.innerHTML = '';
-    noFaces.style.display = 'none';
-
-    faces.forEach((face, index) => {
-        const card = createFaceCard(face, index);
-        grid.appendChild(card);
-    });
+function confirmDelete(id, type) {
+    deleteTarget = id;
+    deleteType = type;
+    document.getElementById('modal-title').textContent = type === 'user' ? 'Deactivate User' : 'Delete Face';
+    document.getElementById('modal-text').textContent = type === 'user'
+        ? 'This user will no longer be able to login.'
+        : 'This will permanently remove the person from the AI database.';
+    document.getElementById('confirm-modal').style.display = 'flex';
 }
 
 /**
- * Create face card element
+ * Form Submission Handling
  */
-function createFaceCard(face, index) {
-    const card = document.createElement('div');
-    card.className = 'detection-card fade-in';
-    card.style.animationDelay = `${index * 0.05}s`;
+/**
+ * Combined Modal Form Handling
+ */
+function setupForms() {
+    const formModal = document.getElementById('form-modal');
+    const dynamicForm = document.getElementById('dynamic-form');
+    const formTitle = document.getElementById('form-title');
+    const formSubmit = document.getElementById('form-submit');
+    const formCancel = document.getElementById('form-cancel');
 
-    const createdDate = new Date(face.created_at);
-    const formattedDate = createdDate.toLocaleDateString();
-
-    card.innerHTML = `
-        <div class="detection-info">
-            <div class="detection-name" style="margin-bottom: 0.5rem;">${face.person_name}</div>
-            <div class="text-muted" style="font-size: 0.875rem; margin-bottom: 1rem;">ID: ${face.person_id}</div>
-            
-            <div style="padding: 0.75rem; background: var(--bg-secondary); border-radius: 0.375rem; margin-bottom: 1rem;">
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Added</div>
-                <div style="font-weight: 600;">${formattedDate}</div>
+    // Show Create User Modal
+    document.getElementById('add-user-btn').onclick = () => {
+        formTitle.innerText = "Initialize Personnel Account";
+        dynamicForm.innerHTML = `
+            <div class="form-group">
+                <label>Full Legal Name</label>
+                <input id="modal-user-name" class="form-input" placeholder="e.g. Sgt. Miller" required>
             </div>
-            
-            <button class="btn btn-secondary delete-btn" data-id="${face.id}" style="background: var(--error-color); color: white; width: 100%;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <polyline points="3 6 5 6 21 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Delete</span>
-            </button>
-        </div>
-    `;
+            <div class="form-group">
+                <label>Institutional Email</label>
+                <input type="email" id="modal-user-email" class="form-input" placeholder="e.g. miller@trueface.ai" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="modal-user-password" class="form-input" placeholder="Minimum 8 characters" required>
+            </div>
+            <div class="form-group">
+                <label>Security Authorization Role</label>
+                <select id="modal-user-role" class="form-input">
+                    <option value="VIEWER">VIEWER (Basic Access)</option>
+                    <option value="MANAGER">MANAGER (Enrollment Privileges)</option>
+                    <option value="ADMIN">ADMIN (Full System Control)</option>
+                </select>
+            </div>
+        `;
+        formModal.style.display = 'flex';
+    };
 
-    // Add delete button listener
-    const deleteBtn = card.querySelector('.delete-btn');
-    deleteBtn.addEventListener('click', () => {
-        faceToDelete = face.id;
-        document.getElementById('deleteModal').classList.add('active');
-    });
+    // Show Add Face Modal
+    document.getElementById('add-face-btn').onclick = () => {
+        formTitle.innerText = "Register Biometric Identity";
+        dynamicForm.innerHTML = `
+            <div class="form-group">
+                <label>Subject Facial Capture</label>
+                <input type="file" id="modal-face-image" accept="image/*" class="form-input" style="padding: 0.5rem;">
+            </div>
+            <div class="form-group">
+                <label>Subject Full Name</label>
+                <input id="modal-face-name" class="form-input" placeholder="Enter name for AI mapping">
+            </div>
+        `;
+        formModal.style.display = 'flex';
+    };
 
-    return card;
-}
+    // Close Modal
+    formCancel.onclick = () => formModal.style.display = 'none';
 
-/**
- * Delete face from database
- */
-async function deleteFace(faceId) {
-    try {
-        showNotification('Deleting face...', 'info');
+    // Global Submit Logic
+    formSubmit.onclick = async () => {
+        const isUserForm = formTitle.innerText.includes("Personnel");
+        formSubmit.disabled = true;
+        formSubmit.innerText = "Processing...";
 
-        const response = await fetch(API_BASE + `/api/face/${faceId}`, {
-            method: 'DELETE'
-        });
+        try {
+            if (isUserForm) {
+                // User Creation Logic
+                const name = document.getElementById('modal-user-name').value;
+                const email = document.getElementById('modal-user-email').value;
+                const password = document.getElementById('modal-user-password').value;
+                const role = document.getElementById('modal-user-role').value;
 
-        const data = await response.json();
+                if (!name || !email || !password) throw new Error("Missing required fields");
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to delete face');
+                const res = await fetch(API_BASE + '/api/admin/user/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name: name, email: email, password: password, role: role })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Creation failed");
+                alert('Account generated successfully.');
+            } else {
+                // Face Addition Logic
+                const name = document.getElementById('modal-face-name').value;
+                const fileInput = document.getElementById('modal-face-image');
+                if (!name || !fileInput.files[0]) throw new Error("Name and photo identification required");
+
+                const formData = new FormData();
+                formData.append('person_name', name);
+                formData.append('file', fileInput.files[0]);
+
+                const res = await fetch(API_BASE + '/api/face/add', { method: 'POST', body: formData });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "Face upload failed");
+                }
+                alert('Subject identity registered in database.');
+            }
+
+            // Success Cleanup
+            formModal.style.display = 'none';
+            loadUsers();
+            loadFaces();
+            loadDashboard();
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            formSubmit.disabled = false;
+            formSubmit.innerText = "Submit";
         }
-
-        showNotification('Face deleted successfully!', 'success');
-        loadFaces();
-
-    } catch (error) {
-        console.error('Error deleting face:', error);
-        showNotification(error.message || 'Failed to delete face', 'error');
-    }
-}
-
-/**
- * Show no faces message
- */
-function showNoFaces() {
-    const grid = document.getElementById('faceGrid');
-    const noFaces = document.getElementById('noFaces');
-
-    if (grid) grid.innerHTML = '';
-    if (noFaces) noFaces.style.display = 'block';
-    updateElement('totalStoredFaces', 0);
-}
-
-/**
- * Hide loading indicator
- */
-function hideLoading() {
-    const loading = document.getElementById('loadingIndicator');
-    if (loading) loading.style.display = 'none';
-}
-
-/**
- * Show notification
- */
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        padding: 1rem 1.5rem;
-        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
-        color: white;
-        border-radius: 0.5rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        z-index: 3000;
-        animation: slideIn 0.3s ease-out;
-    `;
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-/**
- * Utility: Update element text
- */
-function updateElement(id, value) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.textContent = value;
-    }
+    };
 }

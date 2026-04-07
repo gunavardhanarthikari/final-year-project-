@@ -3,8 +3,44 @@ Database models for TrueFace AI
 """
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+
+class User(db.Model):
+    """Model for application users with role-based access"""
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True) # Backend DB ID
+    readable_id = db.Column(db.String(20), unique=True, nullable=False) # AD001, MG001, etc.
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    full_name = db.Column(db.String(200), nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=False) # 'ADMIN', 'MANAGER', 'VIEWER'
+    is_deleted = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    uploads = db.relationship('UploadedFile', backref='uploader', lazy=True)
+    stored_faces = db.relationship('StoredFace', backref='creator', lazy=True)
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def to_dict(self):
+        return {
+            'db_id': self.id,
+            'readable_id': self.readable_id,
+            'email': self.email,
+            'full_name': self.full_name,
+            'role': self.role,
+            'is_deleted': self.is_deleted,
+            'created_at': self.created_at.isoformat()
+        }
 
 
 class StoredFace(db.Model):
@@ -12,10 +48,12 @@ class StoredFace(db.Model):
     __tablename__ = 'stored_faces'
     
     id = db.Column(db.Integer, primary_key=True)
-    person_id = db.Column(db.String(100), unique=True, nullable=False)
+    readable_id = db.Column(db.String(20), unique=True, nullable=False) # FC001, FC002, etc.
+    person_id = db.Column(db.String(100), unique=True, nullable=False) # UUID or legacy ID
     person_name = db.Column(db.String(200), nullable=False)
     image_path = db.Column(db.String(500), nullable=False)
     embedding_path = db.Column(db.String(500), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -25,10 +63,12 @@ class StoredFace(db.Model):
     def to_dict(self):
         """Convert model to dictionary"""
         return {
-            'id': self.id,
+            'db_id': self.id,
+            'readable_id': self.readable_id,
             'person_id': self.person_id,
             'person_name': self.person_name,
             'image_path': self.image_path,
+            'created_by': self.created_by,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -39,6 +79,7 @@ class UploadedFile(db.Model):
     __tablename__ = 'uploaded_files'
     
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Track uploader
     filename = db.Column(db.String(500), nullable=False)
     file_path = db.Column(db.String(500), nullable=False)
     file_type = db.Column(db.String(20), nullable=False)  # 'image' or 'video'
@@ -54,6 +95,7 @@ class UploadedFile(db.Model):
         """Convert model to dictionary"""
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'filename': self.filename,
             'file_type': self.file_type,
             'file_size': self.file_size,
@@ -115,7 +157,8 @@ class Detection(db.Model):
         # Add matched person info if available
         if self.matched_face:
             result['matched_person'] = {
-                'id': self.matched_face.person_id,
+                'db_id': self.matched_face.id,
+                'readable_id': self.matched_face.readable_id,
                 'name': self.matched_face.person_name
             }
         else:

@@ -5,83 +5,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analysis Results - TrueFace AI</title>
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Ionicons -->
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-    <!-- CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
     <div class="container">
         <!-- Navigation -->
-        <nav class="navbar glass-panel" style="align-items: center">
-            <div class="brand">
-                <ion-icon name="scan-outline"></ion-icon>
-                TrueFace AI
-            </div>
-            <div class="nav-links">
-                <a href="index.html" class="nav-link">
-                    <ion-icon name="arrow-back-outline"></ion-icon> Back to Home
-                </a>
-            </div>
+        <!-- Navigation (Standardized) -->
+        <nav class="navbar">
+            <div class="brand">TrueFace AI</div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="nav-link">Home</a></li>
+                <li><a href="history.html" class="nav-link">History</a></li>
+                <li data-role="ADMIN"><a href="admin.html" class="nav-link">Admin</a></li>
+                <li style="margin-left: 1rem; border-left: 1px solid var(--border); padding-left: 1rem;">
+                    <span id="user-display" class="text-muted" style="font-size: 0.8rem; font-weight: 600;"></span>
+                </li>
+                <li><a href="#" id="logout-link" class="nav-link logout">Logout</a></li>
+            </ul>
         </nav>
 
-        <!-- Stats Bar -->
-        <div class="stats-container" style="margin-bottom: 2rem;">
-            <div class="glass-panel stat-card">
-                <div class="stat-icon"><ion-icon name="people"></ion-icon></div>
-                <div class="stat-info">
-                    <h3 id="totalFaces">0</h3>
-                    <p>Faces Found</p>
-                </div>
+        <!-- Stats Bar (Minimalist) -->
+        <div class="home-grid stats-grid" style="margin-bottom: 2rem;">
+            <div class="stark-box stat-card">
+                <p class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">Faces Found</p>
+                <div class="stat-value" id="totalFaces">0</div>
             </div>
-            <div class="glass-panel stat-card">
-                <div class="stat-icon" style="color: var(--success); background: rgba(16, 185, 129, 0.1);">
-                    <ion-icon name="checkmark-circle"></ion-icon>
-                </div>
-                <div class="stat-info">
-                    <h3 id="matchedFaces">0</h3>
-                    <p>Matches</p>
-                </div>
+            <div class="stark-box stat-card">
+                <p class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">Matches</p>
+                <div class="stat-value" id="matchedFaces">0</div>
             </div>
-            <div class="glass-panel stat-card">
-                <div class="stat-icon" style="color: var(--secondary); background: rgba(236, 72, 153, 0.1);">
-                    <ion-icon name="timer"></ion-icon>
-                </div>
-                <div class="stat-info">
-                    <h3 id="processingTime">0s</h3>
-                    <p>Process Time</p>
-                </div>
+            <div class="stark-box stat-card">
+                <p class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">Process Time</p>
+                <div class="stat-value" id="processingTime">0s</div>
             </div>
         </div>
 
-        <div class="results-container">
+        <div class="results-layout">
             <!-- Visual Result -->
-            <div class="glass-panel image-preview-card" id="annotatedImageContainer">
-                <img id="result-image" src="" alt="Analyzed Result">
+            <div class="stark-box" id="annotatedImageContainer" style="padding: 0; position: sticky; top: 5rem;">
+                <img id="result-image" src="" alt="Analyzed Result"
+                    style="width: 100%; border-radius: var(--radius); display: block;">
             </div>
 
             <!-- Data Result -->
-            <div class="glass-panel" style="padding: 1.5rem; overflow: hidden; display: flex; flex-direction: column;">
-                <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem;">
-                    <ion-icon name="list-outline"></ion-icon> Detections
-                </h2>
-
-                <div id="detections-list" class="detections-list">
-                    <!-- Detections injected by JS -->
+            <div id="data-column">
+                <h3 style="margin-bottom: 1.5rem; border-bottom: 2px solid black; padding-bottom: 0.5rem;">Identified
+                    Individuals</h3>
+                <div id="detections-list">
+                    <!-- Premium cards injected by JS -->
                 </div>
 
-                <div id="noResults" style="display: none; text-align: center; padding: 3rem 1rem;">
-                    <ion-icon name="alert-circle-outline" style="font-size: 3rem; color: var(--text-muted);"></ion-icon>
-                    <p style="margin-top: 1rem; color: var(--text-muted);">No faces were detected in this file.</p>
+                <div id="noResults" style="display: none; text-align: center; padding: 3rem 1rem;" class="stark-box">
+                    <p class="text-muted">No faces were detected in this file.</p>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Enrollment Modal (Hidden by default) -->
+    <div id="enrollment-modal" class="processing-overlay" style="display: none; background: rgba(255,255,255,0.9);">
+        <div class="stark-box auth-form" style="box-shadow: 0 20px 50px rgba(0,0,0,0.1);">
+            <h3>Enroll New Face</h3>
+            <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 2rem;">Add this detection to the permanent
+                database.</p>
+
+            <div class="form-group">
+                <label>Person Name</label>
+                <input type="text" id="modal-person-name" class="form-input" placeholder="e.g. Unknown Person">
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button id="btn-cancel-enroll" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                <button id="btn-confirm-enroll" class="btn btn-primary" style="flex: 1;">Save to DB</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Overlay -->
+    <div id="processing-overlay" class="processing-overlay">
+        <div
+            style="border: 4px solid #eee; border-top: 4px solid black; width: 40px; height: 40px; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1.5rem;">
+        </div>
+        <h3>Working...</h3>
+    </div>
+
+    <script src="js/auth.js"></script>
     <script src="js/results.js"></script>
+    <script>
+        document.getElementById('logout-link').onclick = (e) => {
+            e.preventDefault();
+            auth.logout();
+        };
+    </script>
 </body>
 
 </html>
